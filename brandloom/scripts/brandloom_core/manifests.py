@@ -81,7 +81,8 @@ def build_generation_manifest(
     if base_prompt is not None:
         manifest["base_prompt"] = base_prompt
     if image_tool_returned_path is not None:
-        manifest["image_tool_returned_path"] = str(Path(image_tool_returned_path).as_posix())
+        # Preserve the host tool's returned string verbatim for auditability.
+        manifest["image_tool_returned_path"] = str(image_tool_returned_path)
     return manifest
 
 

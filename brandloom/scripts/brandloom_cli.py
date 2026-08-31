@@ -143,7 +143,7 @@ def _compose(args: argparse.Namespace) -> int:
         font_paths=font_paths, base_image_path=base_path, output_path=result.output_path,
         qa_state=QAState.GENERATION_READY.value if args.test_fixture else _load_session(workspace).state.value,
         rendered_copy=brief.copy, output_type=args.type, base_prompt=prompt,
-        image_tool_returned_path=base_path,
+        image_tool_returned_path=args.base,
     )
     write_manifest(_versioned_manifest(output_dir), manifest)
     print(result.output_path)

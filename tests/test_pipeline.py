@@ -117,6 +117,25 @@ class PipelineTests(unittest.TestCase):
             brandloom_cli.main(["init", "--workspace", str(root)])
             self.assertEqual(brandloom_cli.main(["state-confirm", "--workspace", str(root), "--state", "NOT_A_STATE"]), 2)
 
+    def test_manifest_preserves_raw_host_returned_base_path(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            brandloom_cli.main(["init", "--workspace", str(root)])
+            logo = self._asset(root, "logo.png", (40, 20), (1, 2, 3, 255))
+            mark = self._asset(root, "mark.png", (20, 20), (4, 5, 6, 255))
+            for source, category in ((logo, "company-logo"), (mark, "project-mark")):
+                brandloom_cli.main(["asset-add", "--workspace", str(root), "--source", str(source), "--category", category,
+                                    "--scope", "project", "--rights", "user_authorized", "--save-confirmed", "--make-default"])
+            brief = {"schema_version": "1.0", "project": {"name": "Demo", "slug": "raw"},
+                     "copy": {"title": "Title"}, "style": {}, "fonts": {"heading": str(self._font())}, "assets": {}, "outputs": {}}
+            (root / ".brandloom" / "brand-brief.json").write_text(json.dumps(brief), encoding="utf-8")
+            Image.new("RGBA", (2048, 2048), "white").save(root / "base.png")
+            raw_return = "base.png"
+            self.assertEqual(brandloom_cli.main(["compose", "--workspace", str(root), "--type", "logo-card",
+                                                 "--base", raw_return, "--test-fixture"]), 0)
+            manifest = json.loads(next((root / ".brandloom" / "outputs" / "raw").glob("generation-manifest-v01.json")).read_text(encoding="utf-8"))
+            self.assertEqual(manifest["image_tool_returned_path"], raw_return)
+
 
 if __name__ == "__main__":
     unittest.main()
