@@ -108,8 +108,52 @@ class PipelineTests(unittest.TestCase):
             output_dir.mkdir(parents=True)
             image = output_dir / "logo-card-1x1.png"
             Image.new("RGBA", (2048, 2048), "white").save(image)
-            (output_dir / "generation-manifest-v01.json").write_text(json.dumps({"output": {"path": "logo-card-1x1.png"}}), encoding="utf-8")
+            (output_dir / "generation-manifest-v01.json").write_text(json.dumps({
+                "output": {"path": "logo-card-1x1.png"}, "rendered_copy": {},
+                "assets": [{"asset_id": "logo-demo", "sha256": "fixture-logo-hash"}],
+            }), encoding="utf-8")
             self.assertEqual(brandloom_cli.main(["validate", "--workspace", str(root), "--type", "logo-card"]), 0)
+
+    def test_validate_blocks_manifest_without_canonical_copy_or_logo_hash(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            brandloom_cli.main(["init", "--workspace", str(root)])
+            brief = {"schema_version": "1.0", "project": {"name": "Demo", "slug": "qa"},
+                     "copy": {}, "style": {}, "fonts": {}, "assets": {}, "outputs": {}}
+            (root / ".brandloom" / "brand-brief.json").write_text(json.dumps(brief), encoding="utf-8")
+            output_dir = root / ".brandloom" / "outputs" / "qa"
+            output_dir.mkdir(parents=True)
+            Image.new("RGBA", (2048, 2048), "white").save(output_dir / "logo-card-1x1.png")
+            (output_dir / "generation-manifest-v01.json").write_text(json.dumps({"output": {"path": "logo-card-1x1.png"}}), encoding="utf-8")
+            self.assertEqual(brandloom_cli.main(["validate", "--workspace", str(root), "--type", "logo-card"]), 2)
+
+    def test_deliver_blocks_too_many_logo_card_ips(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            brandloom_cli.main(["init", "--workspace", str(root)])
+            brief = {"schema_version": "1.0", "project": {"name": "Demo", "slug": "deliver-ip"},
+                     "copy": {}, "style": {}, "fonts": {}, "assets": {"logo_card_ip": ["a", "b", "c", "d"]}, "outputs": {}}
+            (root / ".brandloom" / "brand-brief.json").write_text(json.dumps(brief), encoding="utf-8")
+            output_dir = root / ".brandloom" / "outputs" / "deliver-ip"; output_dir.mkdir(parents=True)
+            Image.new("RGBA", (2048, 2048), "white").save(output_dir / "logo-card-1x1.png")
+            manifest = {"output": {"path": "logo-card-1x1.png"}, "rendered_copy": {},
+                        "assets": [{"asset_id": "logo-demo", "sha256": "fixture-logo-hash"}]}
+            (output_dir / "generation-manifest-v01.json").write_text(json.dumps(manifest), encoding="utf-8")
+            self.assertEqual(brandloom_cli.main(["deliver", "--workspace", str(root), "--type", "logo-card", "--reviewed"]), 2)
+
+    def test_deliver_blocks_analysis_only_custom_ip(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            brandloom_cli.main(["init", "--workspace", str(root)])
+            brief = {"schema_version": "1.0", "project": {"name": "Demo", "slug": "deliver-rights"},
+                     "copy": {}, "style": {}, "fonts": {}, "assets": {"custom_ip_rights": ["analysis_only"]}, "outputs": {}}
+            (root / ".brandloom" / "brand-brief.json").write_text(json.dumps(brief), encoding="utf-8")
+            output_dir = root / ".brandloom" / "outputs" / "deliver-rights"; output_dir.mkdir(parents=True)
+            Image.new("RGBA", (2048, 2048), "white").save(output_dir / "logo-card-1x1.png")
+            manifest = {"output": {"path": "logo-card-1x1.png"}, "rendered_copy": {},
+                        "assets": [{"asset_id": "logo-demo", "sha256": "fixture-logo-hash"}]}
+            (output_dir / "generation-manifest-v01.json").write_text(json.dumps(manifest), encoding="utf-8")
+            self.assertEqual(brandloom_cli.main(["deliver", "--workspace", str(root), "--type", "logo-card", "--reviewed"]), 2)
 
     def test_state_confirm_rejects_unknown_state(self) -> None:
         with TemporaryDirectory() as directory:

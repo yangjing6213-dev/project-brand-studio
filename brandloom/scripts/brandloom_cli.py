@@ -17,6 +17,7 @@ try:
     from .brandloom_core.renderer import render_brand_asset
     from .brandloom_core.state_machine import assert_generation_ready
     from .brandloom_core.prompt_builder import build_base_prompt, validate_generated_path
+    from .brandloom_core.validation import validate_output
 except ImportError:  # pragma: no cover - supports direct script execution
     from brandloom.scripts.brandloom_core.asset_library import list_assets, register_asset, resolve_default
     from brandloom.scripts.brandloom_core.json_io import read_json_dataclass
@@ -26,6 +27,7 @@ except ImportError:  # pragma: no cover - supports direct script execution
     from brandloom.scripts.brandloom_core.renderer import render_brand_asset
     from brandloom.scripts.brandloom_core.state_machine import assert_generation_ready
     from brandloom.scripts.brandloom_core.prompt_builder import build_base_prompt, validate_generated_path
+    from brandloom.scripts.brandloom_core.validation import validate_output
 
 
 def _json_write(path: Path, data: Any) -> None:
@@ -150,7 +152,7 @@ def _compose(args: argparse.Namespace) -> int:
     return 0
 
 
-def _validate(args: argparse.Namespace) -> int:
+def _output_qa_report(args: argparse.Namespace, *, manual_visual_checks: bool):
     workspace = _workspace(args.workspace)
     root = project_root(workspace)
     slug = args.slug
@@ -166,25 +168,48 @@ def _validate(args: argparse.Namespace) -> int:
     directory = root / "outputs" / slug
     manifests = sorted(directory.glob("generation-manifest-v*.json"))
     if not manifests:
-        return 2
+        raise FileNotFoundError("generation manifest missing")
     payload = json.loads(manifests[-1].read_text(encoding="utf-8"))
     output = payload.get("output", {})
     if not isinstance(output, dict):
-        return 2
+        raise ValueError("manifest output must be a mapping")
     output_path = Path(str(output.get("path", "")))
     if not output_path.is_absolute():
         output_path = (manifests[-1].parent / output_path).resolve()
-    if not output_path.is_file():
-        return 2
+    output_type = "logo_card" if args.type == "logo-card" else args.type.replace("-", "_")
+    validate_generated_path(output_path, expected=output_type)
+    brief = _load_brief(workspace) if (root / "brand-brief.json").is_file() else None
+    previous_outputs = []
+    for previous in manifests[:-1]:
+        previous_payload = json.loads(previous.read_text(encoding="utf-8"))
+        previous_entry = previous_payload.get("output", {})
+        if isinstance(previous_entry, dict) and previous_entry.get("path"):
+            previous_path = Path(str(previous_entry["path"]))
+            previous_outputs.append(previous_path if previous_path.is_absolute() else previous.parent / previous_path)
+    assets = brief.assets if isinstance(brief, BrandBrief) else {}
+    logo_ips = assets.get("logo_card_ip", []) if isinstance(assets, dict) else []
+    rights = assets.get("custom_ip_rights", []) if isinstance(assets, dict) else []
+    return validate_output(output_path, manifest=payload, brief=brief, output_type=output_type,
+                           existing_output_paths=previous_outputs, logo_card_ip=logo_ips,
+                           custom_ip_rights=rights, manual_visual_checks=manual_visual_checks)
+
+
+def _validate(args: argparse.Namespace) -> int:
     try:
-        validate_generated_path(output_path, expected="logo_card" if args.type == "logo-card" else "cover")
-    except (FileNotFoundError, ValueError):
+        report = _output_qa_report(args, manual_visual_checks=False)
+    except (FileNotFoundError, ValueError, TypeError, json.JSONDecodeError):
         return 2
-    return 0
+    return 0 if report.passed else 2
 
 
 def _deliver(args: argparse.Namespace) -> int:
-    return _validate(args)
+    if not args.reviewed:
+        return 3
+    try:
+        report = _output_qa_report(args, manual_visual_checks=True)
+    except (FileNotFoundError, ValueError, TypeError, json.JSONDecodeError):
+        return 2
+    return 0 if report.passed else 2
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -198,7 +223,10 @@ def _parser() -> argparse.ArgumentParser:
     p = sub.add_parser("state-confirm"); p.add_argument("--workspace", required=True); p.add_argument("--state"); p.add_argument("--key"); p.add_argument("--value", default="true"); p.add_argument("--test-fixture", action="store_true"); p.set_defaults(func=_state_confirm)
     p = sub.add_parser("compose"); p.add_argument("--workspace", required=True); p.add_argument("--type", required=True, choices=["logo-card", "cover"]); p.add_argument("--base", required=True); p.add_argument("--test-fixture", action="store_true"); p.set_defaults(func=_compose)
     for name in ("validate", "deliver"):
-        p = sub.add_parser(name); p.add_argument("--workspace", required=True); p.add_argument("--type", default="logo-card"); p.add_argument("--slug"); p.set_defaults(func=_validate if name == "validate" else _deliver)
+        p = sub.add_parser(name); p.add_argument("--workspace", required=True); p.add_argument("--type", default="logo-card"); p.add_argument("--slug")
+        if name == "deliver":
+            p.add_argument("--reviewed", action="store_true", help="confirm manual visual review")
+        p.set_defaults(func=_validate if name == "validate" else _deliver)
     return parser
 
 
