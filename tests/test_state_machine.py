@@ -38,6 +38,24 @@ class StateMachineTests(unittest.TestCase):
         self.assertIn("generation_confirmation", changed.invalidated)
         self.assertEqual(changed.state, QAState.FONT_PENDING)
 
+    def test_builtin_ip_combination_can_advance_to_usage(self) -> None:
+        session = confirm(session_at(QAState.IP_COMBINATION_PENDING), "ip_cast", "tuotuo")
+        self.assertEqual(advance(session, QAState.IP_USAGE_PENDING).state, QAState.IP_USAGE_PENDING)
+
+    def test_custom_ip_combination_enters_reference_flow(self) -> None:
+        session = confirm(session_at(QAState.IP_COMBINATION_PENDING), "ip_cast", "custom")
+        self.assertEqual(advance(session, QAState.CUSTOM_IP_REFERENCE_PENDING).state, QAState.CUSTOM_IP_REFERENCE_PENDING)
+
+    def test_ready_gate_rejects_missing_confirmation(self) -> None:
+        session = session_at(QAState.GENERATION_READY)
+        with self.assertRaises(GenerationGateError):
+            assert_generation_ready(session)
+
+    def test_confirm_clears_matching_invalidation(self) -> None:
+        session = invalidate_from(session_at(QAState.GENERATION_CONFIRM_PENDING), "style")
+        confirmed = confirm(session, "font", "Inter")
+        self.assertNotIn("font", confirmed.invalidated)
+
 
 if __name__ == "__main__":
     unittest.main()

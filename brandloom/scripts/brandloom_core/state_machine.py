@@ -20,7 +20,7 @@ TRANSITIONS: dict[QAState, frozenset[QAState]] = {
     QAState.COMPANY_LOGO_PENDING: frozenset({QAState.PROJECT_MARK_PENDING, QAState.CANCELLED}),
     QAState.PROJECT_MARK_PENDING: frozenset({QAState.IP_CAST_PENDING, QAState.CANCELLED}),
     QAState.IP_CAST_PENDING: frozenset({QAState.IP_COMBINATION_PENDING, QAState.CANCELLED}),
-    QAState.IP_COMBINATION_PENDING: frozenset({QAState.CUSTOM_IP_REFERENCE_PENDING, QAState.CANCELLED}),
+    QAState.IP_COMBINATION_PENDING: frozenset({QAState.CUSTOM_IP_REFERENCE_PENDING, QAState.IP_USAGE_PENDING, QAState.CANCELLED}),
     QAState.CUSTOM_IP_REFERENCE_PENDING: frozenset({QAState.CUSTOM_IP_DRAFT_PENDING, QAState.CANCELLED}),
     QAState.CUSTOM_IP_DRAFT_PENDING: frozenset({QAState.RIGHTS_CONFIRM_PENDING, QAState.CANCELLED}),
     QAState.RIGHTS_CONFIRM_PENDING: frozenset({QAState.IP_USAGE_PENDING, QAState.CANCELLED}),
@@ -64,6 +64,12 @@ _REQUIRED = ("context", "copy", "style", "font", "company_logo", "project_mark",
 
 
 def advance(session: QASession, target: QAState) -> QASession:
+    if session.state is QAState.IP_COMBINATION_PENDING:
+        is_custom = session.confirmed.get("ip_cast") == "custom"
+        if is_custom and target is QAState.IP_USAGE_PENDING:
+            raise ValueError("custom IP requires reference, draft, and rights confirmations")
+        if not is_custom and target is QAState.CUSTOM_IP_REFERENCE_PENDING:
+            raise ValueError("non-custom IP cannot enter custom reference flow")
     if target not in TRANSITIONS.get(session.state, frozenset()):
         raise ValueError(f"invalid QA transition: {session.state} -> {target}")
     return replace(session, state=target)
