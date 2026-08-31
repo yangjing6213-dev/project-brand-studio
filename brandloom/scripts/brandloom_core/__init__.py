@@ -1,6 +1,14 @@
 """Public runtime models and JSON persistence for BrandLoom."""
 
 from .json_io import read_json_dataclass, write_json_dataclass
+from .asset_library import (
+    list_assets,
+    register_asset,
+    resolve_default,
+    set_default,
+    sha256_file,
+)
+from .paths import project_root, resolve_personal_root
 from .models import (
     AssetCategory,
     AssetRecord,
@@ -23,4 +31,11 @@ __all__ = [
     "TaskMode",
     "read_json_dataclass",
     "write_json_dataclass",
+    "list_assets",
+    "register_asset",
+    "resolve_default",
+    "set_default",
+    "sha256_file",
+    "project_root",
+    "resolve_personal_root",
 ]
