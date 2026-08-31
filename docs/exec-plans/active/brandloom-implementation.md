@@ -26,8 +26,8 @@ Build the installable `brandloom` Codex Skill in repository `project-brand-studi
 | T2 | Define runtime enums/dataclasses and JSON IO | core models/json_io, tests | Session round-trip and atomic JSON behavior | focused + full unittest, diff | T1 | verified |
 | T3 | Enforce QA transitions/invalidation/gate | state_machine, tests | Explicit transitions and generation gate | focused + full unittest, diff | T2 | verified |
 | T4 | Add complete QA references and routing | SKILL.md, references, contract tests | All states/options/rules and routes present | focused + full unittest, diff | T1,T3 | verified |
-| T5 | Implement rights-aware local asset library | paths, asset_library, tests | Hash dedupe, defaults, versioning, rights checks | focused + full unittest, diff | T2 | pending |
-| T6 | Add authorized built-in logo/IP profiles | defaults, IP refs, tests | Three profiles, seven combinations, provenance and image checks | focused + full unittest + manual image check | T5 + explicit user A | blocked at gate |
+| T5 | Implement rights-aware local asset library | paths, asset_library, tests | Hash dedupe, defaults, versioning, rights checks | focused + full unittest, diff | T2 | verified |
+| T6 | Add authorized built-in logo/IP profiles | defaults, IP refs, tests | Three profiles, seven combinations, provenance and image checks | focused + full unittest + manual image check | T5 + explicit user A | blocked |
 | T7 | Resolve fonts with strict fallback | font presets, fonts.py, tests | Alias resolution and no silent fallback | focused + full unittest, diff | T2,T4 | pending |
 | T8 | Render deterministic templates with Pillow | templates, layout, renderer, tests | Dimensions, text fit, aspect integrity, versioning | focused + full unittest, diff | T2,T5,T7 | pending |
 | T9 | Build generation prompts and backend boundary | prompt_builder, backend ref, SKILL.md, tests | Safe prompt and returned-path validation | focused + full unittest, diff | T3,T4,T6,T8 | pending |
@@ -40,12 +40,13 @@ Build the installable `brandloom` Codex Skill in repository `project-brand-studi
 - T2 runtime models/JSON IO: commits `7831cdf` and `5a3c865`; fresh focused 7/7 and full 10/10, independent review plus scoped fix re-review approved.
 - T3 QA state machine: commits `45027d9` and `e76c88b`; fresh focused 7/7 and full 17/17, independent review plus scoped fix re-review approved (one deferred coverage minor).
 - T4 QA references/routing: commits `87f97fe`, `169d308`, `16e423e`, `569ed2f`; fresh focused 6/6 and full 20/20, two scoped fix re-reviews approved (one deferred static-test minor).
+- T5 asset library: commits `ad4ea8b` and `2091875`; fresh focused 7/7 and full 27/27, independent review plus scoped fix re-review approved.
 
 ## Current Work
-- Preflight scan and SDD ledger are complete, including the independent consistency/interface reconciliation and R1–R12 rulings. Task 1 is verified; next check is Task 2 TDD report, commit, and independent review.
+- Task 6 is blocked at the mandatory public-asset authorization gate. No staging files have been imported or copied into `brandloom/assets/defaults/`.
 
 ## Remaining Work
-- Tasks 5–12, Task 6 authorization gate, final review and finishing-branch menu.
+- Obtain explicit Task 6 choice A/B/C, then complete Tasks 6–12, final review, package, and finishing-branch menu.
 
 ## Failures
 - Baseline discovery cannot start because `tests/` does not exist in the planning baseline; this is expected for the empty scaffold and is retained as evidence, not treated as a product test failure.
@@ -63,7 +64,7 @@ Build the installable `brandloom` Codex Skill in repository `project-brand-studi
 - Use the bundled Python executable explicitly because the `py` launcher is absent.
 
 ## Open Risks
-- Task 6 cannot proceed until the user explicitly chooses A, B, or C for the exact staging files; no provenance or binary copying will occur before A.
+- Task 6 cannot proceed until the user explicitly chooses A, B, or C for the exact staging files; no provenance or binary copying will occur before A. Required files are currently absent.
 - Host image-generation availability is not yet established; if absent, visual acceptance must be reported PARTIAL.
 
 ## Final Acceptance
