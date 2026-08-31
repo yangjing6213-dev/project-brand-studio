@@ -23,7 +23,7 @@ Build the installable `brandloom` Codex Skill in repository `project-brand-studi
 | ID | Objective | Files likely affected | Acceptance criteria | Verification | Dependencies | Status |
 |---|---|---|---|---|---|---|
 | T1 | Scaffold minimal installable skill and CI | brandloom/SKILL.md, agents, architecture, tests, requirements, ignore, workflows | Contract tests and pinned dependency pass | focused + full unittest, diff/status | none | verified |
-| T2 | Define runtime enums/dataclasses and JSON IO | core models/json_io, tests | Session round-trip and atomic JSON behavior | focused + full unittest, diff | T1 | pending |
+| T2 | Define runtime enums/dataclasses and JSON IO | core models/json_io, tests | Session round-trip and atomic JSON behavior | focused + full unittest, diff | T1 | verified |
 | T3 | Enforce QA transitions/invalidation/gate | state_machine, tests | Explicit transitions and generation gate | focused + full unittest, diff | T2 | pending |
 | T4 | Add complete QA references and routing | SKILL.md, references, contract tests | All states/options/rules and routes present | focused + full unittest, diff | T1,T3 | pending |
 | T5 | Implement rights-aware local asset library | paths, asset_library, tests | Hash dedupe, defaults, versioning, rights checks | focused + full unittest, diff | T2 | pending |
@@ -37,12 +37,13 @@ Build the installable `brandloom` Codex Skill in repository `project-brand-studi
 
 ## Completed + Verified
 - T1 scaffold: commit `a46d477`; focused and full unittest 3/3, diff check clean, independent review approved.
+- T2 runtime models/JSON IO: commits `7831cdf` and `5a3c865`; fresh focused 7/7 and full 10/10, independent review plus scoped fix re-review approved.
 
 ## Current Work
 - Preflight scan and SDD ledger are complete, including the independent consistency/interface reconciliation and R1–R12 rulings. Task 1 is verified; next check is Task 2 TDD report, commit, and independent review.
 
 ## Remaining Work
-- Tasks 2–12, Task 6 authorization gate, final review and finishing-branch menu.
+- Tasks 3–12, Task 6 authorization gate, final review and finishing-branch menu.
 
 ## Failures
 - Baseline discovery cannot start because `tests/` does not exist in the planning baseline; this is expected for the empty scaffold and is retained as evidence, not treated as a product test failure.
