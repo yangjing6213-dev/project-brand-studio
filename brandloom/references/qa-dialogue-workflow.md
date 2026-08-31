@@ -35,7 +35,8 @@ LOGO 验收菜单：接受并继续封面；修改文字；修改构图；修改
 | project-mark | 上游内容 | 项目标志处理方式、shot list、协调性、生成确认 |
 | ip-cast | 上游内容 | IP 组合、位置、动作、shot list、协调性、生成确认 |
 | ip-combination | 上游内容 | 组合、位置、动作、custom IP、权利、使用、shot list、协调性、生成确认 |
-| custom-IP-reference/custom-IP-draft | 上游 IP 选择 | profile 草稿、权利、保存范围、使用、shot list、协调性、生成确认 |
+| custom-IP-reference | 上游 IP 选择 | profile 草稿、权利、保存范围、使用、shot list、协调性、生成确认 |
+| custom-IP-draft | 上游 IP 选择、参考确认 | profile 草稿、权利、保存范围、使用、shot list、协调性、生成确认 |
 | rights | 上游内容 | 自定义 IP 权利状态、IP 使用、shot list、协调性、生成确认 |
 | ip-usage | 上游内容 | IP 位置与动作、shot list、协调性、生成确认 |
 | shot-list | 上游内容 | shot list、协调性、生成确认 |
