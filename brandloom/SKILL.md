@@ -5,4 +5,23 @@ description: 用于分析项目、对话、附件、链接和品牌素材，并�
 
 # BrandLoom
 
-先读取 `references/architecture.md`。任何生成或改图请求都必须先完成确认式 QA；当前状态不是 `GENERATION_READY` 时不得调用图片工具。
+先读取 `references/architecture.md`，再根据当前阶段按需读取参考文件；不要一次加载完整参考库。任何生成或改图请求都必须先完成确认式 QA，只有 `qa_state = GENERATION_READY` 且用户明确确认后，才可调用 `host_builtin_image_tool`。
+
+## 任务路由
+
+- `analysis-only`：只分析可访问上下文，读取 `context-analysis.md`，交付证据、推断和未确认项，不进入生成门禁。
+- `plan-only`：读取 `copy-directions.md`、`style-presets.md`、`composition-recipes.md`、`output-specs.md`，交付文案、shot list 和提示词，不调用图片工具。
+- `new`：按 `qa-dialogue-workflow.md` 逐项确认；按阶段读取上下文、文案、风格、字体、素材、构图、规格和权利参考，进入 `GENERATION_READY` 后才生成。
+- `edit`：读取 `localization-and-editing.md` 与受影响阶段参考，保留未变更的确认；任何上游修改按失效矩阵重新确认。
+- `localize`：读取 `localization-and-editing.md` 与 `output-specs.md`，复用已确认底图、LOGO、项目标志、IP 和布局，只替换获确认文案与必要排版。
+- `variant`：读取 `localization-and-editing.md`、`composition-recipes.md`、`output-specs.md`，保持品牌档案，重新确认尺寸、平台或风格差异。
+- `custom-IP`：读取 `rights-and-provenance.md`、`brand-assets.md`，依次完成参考、抽象 profile、草稿、使用权和保存范围确认；未到 `user_authorized` 不得生成。
+- 缺少图片工具：仍可完成 analysis-only/plan-only，或交付已确认的本地合成计划；明确说明无法生成，不伪造调用结果。
+
+## 阶段参考路由
+
+按当前状态仅读取对应文件：上下文→`context-analysis.md`；文案→`copy-directions.md`；风格→`style-presets.md`；字体→`font-presets.md`；公司 LOGO/项目标志/IP→`brand-assets.md` 与 `rights-and-provenance.md`；构图→`composition-recipes.md`；输出→`output-specs.md`；编辑/本地化→`localization-and-editing.md`；问答门禁→`qa-dialogue-workflow.md`；内部验收→`qa-checklist.md`。
+
+## 生成结果处理
+
+图片工具只生成无关键文字、无公司 LOGO 的底图；使用 Pillow 确定性合成并写入 manifest。先执行内部 LOGO QA，再展示 LOGO 供用户验收，之后才生成封面；失败、尺寸不符、文字溢出或权利状态不合格时硬停止并返回相应阶段，不覆盖旧版本。

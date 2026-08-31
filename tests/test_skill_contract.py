@@ -26,6 +26,33 @@ class SkillContractTests(unittest.TestCase):
         requirements = (ROOT / "requirements-runtime.txt").read_text(encoding="utf-8")
         self.assertEqual(requirements.strip(), "Pillow==12.3.0")
 
+    def test_dialogue_workflow_covers_confirmation_states_and_rules(self) -> None:
+        required = {
+            "CONTEXT_CONFIRM_PENDING",
+            "COPY_DIRECTION_PENDING",
+            "STYLE_PENDING",
+            "FONT_PENDING",
+            "COMPANY_LOGO_PENDING",
+            "PROJECT_MARK_PENDING",
+            "IP_CAST_PENDING",
+            "IP_USAGE_PENDING",
+            "SHOT_LIST_PENDING",
+            "OUTPUT_SPEC_PENDING",
+            "COHERENCE_REVIEW_PENDING",
+            "GENERATION_CONFIRM_PENDING",
+            "GENERATION_READY",
+        }
+        workflow = (SKILL_ROOT / "references" / "qa-dialogue-workflow.md").read_text(encoding="utf-8")
+        for state in required:
+            self.assertIn(state, workflow)
+        self.assertIn("一次只问一个问题", workflow)
+        self.assertIn("推荐、默认、沉默和模型推断都不算确认", workflow)
+
+    def test_skill_routes_generation_gate_to_host_image_tool(self) -> None:
+        skill_text = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("GENERATION_READY", skill_text)
+        self.assertIn("host_builtin_image_tool", skill_text)
+
 
 if __name__ == "__main__":
     unittest.main()
