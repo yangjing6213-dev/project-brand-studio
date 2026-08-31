@@ -25,3 +25,11 @@ description: 用于分析项目、对话、附件、链接和品牌素材，并�
 ## 生成结果处理
 
 图片工具只生成无关键文字、无公司 LOGO 的底图；使用 Pillow 确定性合成并写入 manifest。使用工具返回路径 exactly（原样），先执行内部 LOGO QA，再展示 LOGO 供用户验收，之后才生成封面；失败、尺寸不符、文字溢出或权利状态不合格时硬停止并返回相应阶段，不覆盖旧版本。
+
+## 生成边界
+
+GENERATION_READY
+  → build prompt
+  → call host built-in image tool
+  → validate returned file
+  → compose with renderer
