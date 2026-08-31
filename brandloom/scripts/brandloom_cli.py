@@ -16,6 +16,7 @@ try:
     from .brandloom_core.paths import project_root
     from .brandloom_core.renderer import render_brand_asset
     from .brandloom_core.state_machine import assert_generation_ready
+    from .brandloom_core.prompt_builder import build_base_prompt, validate_generated_path
 except ImportError:  # pragma: no cover - supports direct script execution
     from brandloom.scripts.brandloom_core.asset_library import list_assets, register_asset, resolve_default
     from brandloom.scripts.brandloom_core.json_io import read_json_dataclass
@@ -24,6 +25,7 @@ except ImportError:  # pragma: no cover - supports direct script execution
     from brandloom.scripts.brandloom_core.paths import project_root
     from brandloom.scripts.brandloom_core.renderer import render_brand_asset
     from brandloom.scripts.brandloom_core.state_machine import assert_generation_ready
+    from brandloom.scripts.brandloom_core.prompt_builder import build_base_prompt, validate_generated_path
 
 
 def _json_write(path: Path, data: Any) -> None:
@@ -81,7 +83,10 @@ def _state_confirm(args: argparse.Namespace) -> int:
             value = args.value == "true"
         confirmed[args.key] = value
     if args.state:
-        payload["state"] = args.state
+        try:
+            payload["state"] = QAState(args.state).value
+        except ValueError:
+            return 2
     _json_write(path, payload)
     return 0
 
@@ -115,7 +120,14 @@ def _compose(args: argparse.Namespace) -> int:
     brief = _load_brief(workspace)
     slug = str(brief.project.get("slug", brief.project.get("name", "project")))
     output_dir = project_root(workspace) / "outputs" / slug
-    template = Path("brandloom/templates/logo-card-1x1.json") if args.type == "logo-card" else Path("brandloom/templates/cover-2x1.json")
+    base_path = Path(args.base)
+    if not base_path.is_absolute():
+        base_path = (workspace / base_path).resolve()
+    prompt_type = "logo_card" if args.type == "logo-card" else "cover"
+    dimensions = validate_generated_path(base_path, expected=prompt_type)
+    prompt = build_base_prompt(brief, prompt_type, expected=dimensions)
+    repo_root = Path(__file__).resolve().parents[2]
+    template = repo_root / "brandloom/templates/logo-card-1x1.json" if args.type == "logo-card" else repo_root / "brandloom/templates/cover-2x1.json"
     records = list_assets(workspace, scope=AssetScope.PROJECT)
     logo = resolve_default(AssetCategory.COMPANY_LOGO, AssetScope.PROJECT, workspace)
     mark = resolve_default(AssetCategory.PROJECT_MARK, AssetScope.PROJECT, workspace)
@@ -124,13 +136,14 @@ def _compose(args: argparse.Namespace) -> int:
     root = project_root(workspace)
     asset_paths = {"company_logo": root / logo.relative_path, "project_mark": root / mark.relative_path}
     font_paths = {key: Path(value) for key, value in brief.fonts.items() if isinstance(value, str)}
-    result = render_brand_asset(template, brief, base_image=Path(args.base), asset_paths=asset_paths,
+    result = render_brand_asset(template, brief, base_image=base_path, asset_paths=asset_paths,
                                 font_paths=font_paths, output_dir=output_dir)
     manifest = build_generation_manifest(
         brief_path=root / "brand-brief.json", assets=records, template_path=template,
-        font_paths=font_paths, base_image_path=Path(args.base), output_path=result.output_path,
+        font_paths=font_paths, base_image_path=base_path, output_path=result.output_path,
         qa_state=QAState.GENERATION_READY.value if args.test_fixture else _load_session(workspace).state.value,
-        rendered_copy=brief.copy, output_type=args.type,
+        rendered_copy=brief.copy, output_type=args.type, base_prompt=prompt,
+        image_tool_returned_path=base_path,
     )
     write_manifest(_versioned_manifest(output_dir), manifest)
     print(result.output_path)
@@ -138,13 +151,36 @@ def _compose(args: argparse.Namespace) -> int:
 
 
 def _validate(args: argparse.Namespace) -> int:
-    directory = project_root(_workspace(args.workspace)) / "outputs" / (args.slug or "demo")
+    workspace = _workspace(args.workspace)
+    root = project_root(workspace)
+    slug = args.slug
+    if not slug:
+        brief_path = root / "brand-brief.json"
+        if brief_path.is_file():
+            try:
+                slug = str(json.loads(brief_path.read_text(encoding="utf-8")).get("project", {}).get("slug", "demo"))
+            except (OSError, json.JSONDecodeError, AttributeError):
+                slug = "demo"
+        else:
+            slug = "demo"
+    directory = root / "outputs" / slug
     manifests = sorted(directory.glob("generation-manifest-v*.json"))
     if not manifests:
         return 2
     payload = json.loads(manifests[-1].read_text(encoding="utf-8"))
     output = payload.get("output", {})
-    return 0 if isinstance(output, dict) and Path(str(output.get("path", ""))).is_file() else 2
+    if not isinstance(output, dict):
+        return 2
+    output_path = Path(str(output.get("path", "")))
+    if not output_path.is_absolute():
+        output_path = (manifests[-1].parent / output_path).resolve()
+    if not output_path.is_file():
+        return 2
+    try:
+        validate_generated_path(output_path, expected="logo_card" if args.type == "logo-card" else "cover")
+    except (FileNotFoundError, ValueError):
+        return 2
+    return 0
 
 
 def _deliver(args: argparse.Namespace) -> int:

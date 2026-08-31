@@ -55,6 +55,8 @@ def build_generation_manifest(
     qa_state: str,
     rendered_copy: Mapping[str, object] | None = None,
     output_type: str | None = None,
+    base_prompt: str | None = None,
+    image_tool_returned_path: Path | str | None = None,
 ) -> dict[str, object]:
     """Build a JSON-safe manifest without retaining prompts or conversation text."""
     fonts = {
@@ -76,6 +78,10 @@ def build_generation_manifest(
     }
     if output_type:
         manifest["output_type"] = output_type
+    if base_prompt is not None:
+        manifest["base_prompt"] = base_prompt
+    if image_tool_returned_path is not None:
+        manifest["image_tool_returned_path"] = str(Path(image_tool_returned_path).as_posix())
     return manifest
 
 
@@ -89,4 +95,3 @@ def write_manifest(path: Path, manifest: Mapping[str, object]) -> None:
         handle.flush()
         os.fsync(handle.fileno())
     os.replace(temporary, destination)
-

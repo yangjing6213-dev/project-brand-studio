@@ -81,6 +81,42 @@ class PipelineTests(unittest.TestCase):
                 "--category", "company-logo", "--scope", "project", "--rights", "user_authorized",
             ]), 2)
 
+    def test_compose_rejects_base_with_wrong_output_dimensions(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            brandloom_cli.main(["init", "--workspace", str(root)])
+            logo = self._asset(root, "logo.png", (40, 20), (1, 2, 3, 255))
+            mark = self._asset(root, "mark.png", (20, 20), (4, 5, 6, 255))
+            for source, category in ((logo, "company-logo"), (mark, "project-mark")):
+                brandloom_cli.main(["asset-add", "--workspace", str(root), "--source", str(source), "--category", category,
+                                    "--scope", "project", "--rights", "user_authorized", "--save-confirmed", "--make-default"])
+            brief = {"schema_version": "1.0", "project": {"name": "Demo", "slug": "other"},
+                     "copy": {"title": "Title"}, "style": {}, "fonts": {"heading": str(self._font())}, "assets": {}, "outputs": {}}
+            (root / ".brandloom" / "brand-brief.json").write_text(json.dumps(brief), encoding="utf-8")
+            Image.new("RGBA", (2048, 2048), "white").save(root / "base.png")
+            with self.assertRaises(ValueError):
+                brandloom_cli.main(["compose", "--workspace", str(root), "--type", "cover", "--base", str(root / "base.png"), "--test-fixture"])
+
+    def test_validate_uses_brief_slug_and_manifest_relative_paths(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            brandloom_cli.main(["init", "--workspace", str(root)])
+            brief = {"schema_version": "1.0", "project": {"name": "Demo", "slug": "other"},
+                     "copy": {}, "style": {}, "fonts": {}, "assets": {}, "outputs": {}}
+            (root / ".brandloom" / "brand-brief.json").write_text(json.dumps(brief), encoding="utf-8")
+            output_dir = root / ".brandloom" / "outputs" / "other"
+            output_dir.mkdir(parents=True)
+            image = output_dir / "logo-card-1x1.png"
+            Image.new("RGBA", (2048, 2048), "white").save(image)
+            (output_dir / "generation-manifest-v01.json").write_text(json.dumps({"output": {"path": "logo-card-1x1.png"}}), encoding="utf-8")
+            self.assertEqual(brandloom_cli.main(["validate", "--workspace", str(root), "--type", "logo-card"]), 0)
+
+    def test_state_confirm_rejects_unknown_state(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            brandloom_cli.main(["init", "--workspace", str(root)])
+            self.assertEqual(brandloom_cli.main(["state-confirm", "--workspace", str(root), "--state", "NOT_A_STATE"]), 2)
+
 
 if __name__ == "__main__":
     unittest.main()
