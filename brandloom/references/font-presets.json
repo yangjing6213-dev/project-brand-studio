@@ -1,0 +1,42 @@
+{
+  "microsoft-yahei-segoe": {
+    "aliases": {
+      "heading": ["Microsoft YaHei", "微软雅黑"],
+      "body": ["Microsoft YaHei", "微软雅黑"],
+      "latin": ["Segoe UI", "Arial"]
+    },
+    "fallback_profile_id": "source-han-inter"
+  },
+  "source-han-inter": {
+    "aliases": {
+      "heading": ["Source Han Sans SC", "思源黑体"],
+      "body": ["Source Han Sans SC", "思源黑体"],
+      "latin": ["Inter", "Arial"]
+    },
+    "fallback_profile_id": "harmonyos-inter"
+  },
+  "harmonyos-inter": {
+    "aliases": {
+      "heading": ["HarmonyOS Sans SC", "HarmonyOS Sans"],
+      "body": ["HarmonyOS Sans SC", "HarmonyOS Sans"],
+      "latin": ["Inter", "Arial"]
+    },
+    "fallback_profile_id": "alibaba-montserrat"
+  },
+  "alibaba-montserrat": {
+    "aliases": {
+      "heading": ["Alibaba PuHuiTi", "阿里妈妈数黑体"],
+      "body": ["Alibaba PuHuiTi", "阿里妈妈数黑体"],
+      "latin": ["Montserrat", "Arial"]
+    },
+    "fallback_profile_id": "deyi-space-grotesk"
+  },
+  "deyi-space-grotesk": {
+    "aliases": {
+      "heading": ["得意黑", "DeyiHei"],
+      "body": ["得意黑", "DeyiHei"],
+      "latin": ["Space Grotesk", "Arial"]
+    },
+    "fallback_profile_id": "microsoft-yahei-segoe"
+  }
+}
