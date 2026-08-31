@@ -82,6 +82,7 @@ class SkillContractTests(unittest.TestCase):
             self.assertIn(phrase, workflow)
         for option in ("GitHub Social Preview 1280x640", "logo-only", "cover-only", "bilingual", "custom dimensions"):
             self.assertIn(option, workflow)
+        self.assertIn("| 变更项 | 保留 | 必须重新确认 |", workflow)
         self.assertIn("保留", workflow)
         self.assertIn("必须重新确认", workflow)
 
