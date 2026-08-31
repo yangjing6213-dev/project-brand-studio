@@ -11,6 +11,8 @@ import unittest
 import zipfile
 from pathlib import Path
 
+from PIL import Image
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 BUILD_SCRIPT = REPO_ROOT / "scripts" / "build_skill_package.py"
@@ -35,6 +37,10 @@ class PackageContractTests(unittest.TestCase):
         required = {
             "brandloom/SKILL.md",
             "brandloom/agents/openai.yaml",
+            "brandloom/requirements-runtime.txt",
+            "brandloom/USAGE.md",
+            "brandloom/LICENSE",
+            "brandloom/NOTICE.md",
         }
         self.assertTrue(required.issubset(names))
         for directory in (
@@ -124,9 +130,9 @@ class PackageContractTests(unittest.TestCase):
             asset = source / "assets" / "defaults" / "sample"
             asset.mkdir(parents=True)
             (source / "SKILL.md").write_text("---\nname: brandloom\n---\n", encoding="utf-8")
-            payload = b"cropped image bytes"
             image = asset / "reference.tiff"
-            image.write_bytes(payload)
+            Image.new("RGBA", (8, 8), "blue").save(image)
+            payload = image.read_bytes()
             (asset / "provenance.json").write_text(
                 json.dumps(
                     {
@@ -276,8 +282,8 @@ class PackageContractTests(unittest.TestCase):
             references.mkdir(parents=True)
             (source / "SKILL.md").write_text("---\nname: brandloom\n---\n", encoding="utf-8")
             image = references / "approved.jpe"
-            payload = b"per-file provenance image"
-            image.write_bytes(payload)
+            Image.new("RGB", (8, 8), "green").save(image, format="JPEG")
+            payload = image.read_bytes()
             (references / "approved.provenance.json").write_text(
                 json.dumps(
                     {
@@ -355,6 +361,48 @@ class PackageContractTests(unittest.TestCase):
             )
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("denylist", result.stderr.lower())
+
+    def test_builder_rejects_corrupt_raster_even_with_matching_authorized_provenance(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            source = Path(temporary_directory) / "brandloom"
+            asset = source / "assets" / "defaults" / "sample"
+            asset.mkdir(parents=True)
+            (source / "SKILL.md").write_text("---\nname: brandloom\n---\n", encoding="utf-8")
+            image = asset / "reference.png"
+            image.write_bytes(b"not a decodable PNG")
+            digest = hashlib.sha256(image.read_bytes()).hexdigest()
+            (asset / "provenance.json").write_text(
+                json.dumps(
+                    {
+                        "source_reference": "synthetic corrupt raster",
+                        "sha256": digest,
+                        "confirmed_at": "2026-09-01T00:00:00+00:00",
+                        "confirmation_source": "test",
+                        "authorization_status": "user_authorized",
+                        "distribution_scope": "public_skill_package",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [sys.executable, str(BUILD_SCRIPT), "--source", str(source), "--output", str(Path(temporary_directory) / "package.zip")],
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+            )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("decod", result.stderr.lower())
+
+    def test_direct_cli_script_runs_from_an_unrelated_working_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            result = subprocess.run(
+                [sys.executable, str(REPO_ROOT / "brandloom" / "scripts" / "brandloom_cli.py"), "--help"],
+                cwd=temporary_directory,
+                capture_output=True,
+                text=True,
+            )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("brandloom", result.stdout.lower())
 
 
 if __name__ == "__main__":

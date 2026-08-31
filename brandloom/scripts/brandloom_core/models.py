@@ -111,3 +111,13 @@ class BrandBrief:
         for name in ("project", "copy", "style", "fonts", "assets", "outputs"):
             if not isinstance(getattr(self, name), dict):
                 raise TypeError(f"{name} must be a mapping")
+        for name in ("direction", "language", "title", "subtitle", "value_line"):
+            value = self.copy.get(name)
+            if value is not None and not isinstance(value, str):
+                raise TypeError(f"copy.{name} must be a string")
+        features = self.copy.get("features")
+        if features is not None:
+            if not isinstance(features, (list, tuple)) or isinstance(features, (str, bytes)):
+                raise TypeError("copy.features must be a list of strings")
+            if any(not isinstance(item, str) for item in features):
+                raise TypeError("copy.features must be a list of strings")

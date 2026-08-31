@@ -20,6 +20,22 @@ def session_at(state: QAState) -> QASession:
     )
 
 
+def ready_session(*, ip_cast: str = "tuotuo", rights: str | None = None) -> QASession:
+    session = session_at(QAState.GENERATION_READY)
+    for key in (
+        "context", "copy", "style", "font", "company_logo", "project_mark",
+        "ip_combination", "ip_usage", "shot_list", "output_spec", "coherence",
+        "generation_confirmation",
+    ):
+        session = confirm(session, key, True)
+    session = confirm(session, "ip_cast", ip_cast)
+    if rights is not None:
+        for key in ("custom_ip_reference", "custom_ip_draft"):
+            session = confirm(session, key, True)
+        session = confirm(session, "rights", rights)
+    return session
+
+
 class StateMachineTests(unittest.TestCase):
     def test_cannot_skip_from_intake_to_generation_ready(self) -> None:
         with self.assertRaises(ValueError):
@@ -55,6 +71,17 @@ class StateMachineTests(unittest.TestCase):
         session = invalidate_from(session_at(QAState.GENERATION_CONFIRM_PENDING), "style")
         confirmed = confirm(session, "font", "Inter")
         self.assertNotIn("font", confirmed.invalidated)
+
+    def test_false_or_empty_values_are_not_confirmations(self) -> None:
+        for value in (False, None, "", (), [], {}):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                confirm(session_at(QAState.CONTEXT_CONFIRM_PENDING), "context", value)
+
+    def test_custom_ip_rights_must_be_explicitly_user_authorized(self) -> None:
+        for status in ("missing", "unknown", "draft_unconfirmed", "analysis_only"):
+            with self.subTest(status=status), self.assertRaises(GenerationGateError):
+                assert_generation_ready(ready_session(ip_cast="custom", rights=status))
+        assert_generation_ready(ready_session(ip_cast="custom", rights="user_authorized"))
 
 
 if __name__ == "__main__":

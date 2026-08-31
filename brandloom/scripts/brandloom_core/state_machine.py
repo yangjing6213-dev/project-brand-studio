@@ -63,6 +63,11 @@ INVALIDATION_RULES = {
 _REQUIRED = ("context", "copy", "style", "font", "company_logo", "project_mark", "ip_cast", "ip_combination", "ip_usage", "shot_list", "output_spec", "coherence", "generation_confirmation")
 
 
+def _has_confirmation(session: QASession, key: str) -> bool:
+    value = session.confirmed.get(key)
+    return key in session.confirmed and value not in (False, None, "", (), [], {}) and key not in session.invalidated
+
+
 def advance(session: QASession, target: QAState) -> QASession:
     if session.state is QAState.IP_COMBINATION_PENDING:
         is_custom = session.confirmed.get("ip_cast") == "custom"
@@ -76,6 +81,10 @@ def advance(session: QASession, target: QAState) -> QASession:
 
 
 def confirm(session: QASession, key: str, value: object) -> QASession:
+    if not key.strip():
+        raise ValueError("confirmation key must be non-empty")
+    if value is False or value is None or value == "" or value == () or value == [] or value == {}:
+        raise ValueError(f"confirmation {key} requires an explicit non-empty value")
     confirmed = dict(session.confirmed)
     confirmed[key] = value
     invalidated = tuple(item for item in session.invalidated if item != key)
@@ -95,8 +104,13 @@ def invalidate_from(session: QASession, key: str) -> QASession:
 def assert_generation_ready(session: QASession) -> None:
     if session.state is not QAState.GENERATION_READY:
         raise GenerationGateError(f"generation requires GENERATION_READY, got {session.state}")
-    missing = [key for key in _REQUIRED if key not in session.confirmed]
+    missing = [key for key in _REQUIRED if not _has_confirmation(session, key)]
     if session.confirmed.get("ip_cast") == "custom":
-        missing.extend(key for key in ("custom_ip_reference", "custom_ip_draft", "rights") if key not in session.confirmed)
+        missing.extend(
+            key for key in ("custom_ip_reference", "custom_ip_draft", "rights")
+            if not _has_confirmation(session, key)
+        )
+        if session.confirmed.get("rights") != "user_authorized":
+            raise GenerationGateError("custom IP generation requires rights=user_authorized")
     if missing:
         raise GenerationGateError(f"missing confirmations: {', '.join(dict.fromkeys(missing))}")

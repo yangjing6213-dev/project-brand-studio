@@ -11,6 +11,8 @@ import zipfile
 from datetime import datetime
 from pathlib import Path
 
+from PIL import Image, UnidentifiedImageError
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 IMAGE_SUFFIXES = {
@@ -119,6 +121,12 @@ def validate_asset(path: Path, denylist: set[str]) -> None:
         relevant_hashes.add(provenance["reference_sha256"].lower())
     if relevant_hashes.intersection(denylist):
         raise PackageError(f"Image matches denylist: {path}")
+    if path.suffix.lower() != ".svg":
+        try:
+            with Image.open(path) as image:
+                image.load()
+        except (UnidentifiedImageError, OSError, SyntaxError, ValueError) as error:
+            raise PackageError(f"Raster image cannot be decoded: {path}") from error
 
 
 def package_files(source: Path, denylist: set[str]) -> list[Path]:

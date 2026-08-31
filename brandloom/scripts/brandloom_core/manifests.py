@@ -34,13 +34,31 @@ def _asset_entries(assets: Iterable[object] | Mapping[str, object] | None) -> li
     for key, value in values:
         if hasattr(value, "asset_id"):
             asset_id, digest, relative = value.asset_id, value.sha256, value.relative_path
+            category = getattr(value.category, "value", value.category)
+            scope = getattr(value.scope, "value", value.scope)
+            rights = getattr(value.rights_status, "value", value.rights_status)
         elif isinstance(value, Mapping):
             asset_id = value.get("asset_id", key or "")
-            digest = value.get("sha256", "")
+            digest = value.get("expected_sha256", value.get("sha256", ""))
             relative = value.get("relative_path", value.get("path", ""))
+            category = value.get("category", "")
+            scope = value.get("scope", "")
+            rights = value.get("rights_status", "")
         else:
             asset_id, digest, relative = key or str(value), "", ""
-        output.append({"asset_id": str(asset_id), "sha256": str(digest), "path": str(relative)})
+            category = scope = rights = ""
+        path = Path(relative) if relative else None
+        observed = _sha256(path) if path is not None and path.is_file() else ""
+        output.append({
+            "asset_id": str(asset_id),
+            "category": str(category),
+            "scope": str(scope),
+            "rights_status": str(rights),
+            "path": str(relative),
+            "expected_sha256": str(digest),
+            "observed_sha256": observed,
+            "sha256": observed or str(digest),
+        })
     return output
 
 
@@ -57,8 +75,9 @@ def build_generation_manifest(
     output_type: str | None = None,
     base_prompt: str | None = None,
     image_tool_returned_path: Path | str | None = None,
+    host_request: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
-    """Build a JSON-safe manifest without retaining prompts or conversation text."""
+    """Build a JSON-safe manifest without retaining secrets or conversation text."""
     fonts = {
         str(role): _entry(path)
         for role, path in (font_paths or {}).items()
@@ -83,6 +102,8 @@ def build_generation_manifest(
     if image_tool_returned_path is not None:
         # Preserve the host tool's returned string verbatim for auditability.
         manifest["image_tool_returned_path"] = str(image_tool_returned_path)
+    if host_request is not None:
+        manifest["host_request"] = dict(host_request)
     return manifest
 
 

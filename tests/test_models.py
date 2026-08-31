@@ -44,6 +44,14 @@ class ModelTests(unittest.TestCase):
         with self.assertRaises(TypeError):
             BrandBrief("1.0", {}, [], {}, {}, {}, {})
 
+    def test_brand_brief_validates_copy_value_types(self) -> None:
+        with self.assertRaises(TypeError):
+            BrandBrief("1.0", {}, {"title": ["not", "text"]}, {}, {}, {}, {})
+        with self.assertRaises(TypeError):
+            BrandBrief("1.0", {}, {"features": "not-a-list"}, {}, {}, {}, {})
+        with self.assertRaises(TypeError):
+            BrandBrief("1.0", {}, {"features": ["valid", 3]}, {}, {}, {}, {})
+
     def test_unsupported_dataclass_type_is_rejected(self) -> None:
         with TemporaryDirectory() as directory:
             path = Path(directory) / "value.json"

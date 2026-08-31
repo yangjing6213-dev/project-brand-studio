@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from dataclasses import asdict
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
@@ -12,14 +13,12 @@ from brandloom.scripts.brandloom_core.manifests import build_generation_manifest
 from brandloom.scripts.brandloom_core.models import BrandBrief
 from brandloom.scripts.brandloom_core.renderer import render_brand_asset
 from brandloom.scripts.brandloom_core.validation import QAReport, localize_brief, validate_output
+from tests.font_test_utils import find_test_font
 
 
 class LocalizationAndQATests(unittest.TestCase):
     def _font(self) -> Path:
-        for path in (Path(r"C:\Windows\Fonts\arial.ttf"), Path(r"C:\Windows\Fonts\segoeui.ttf")):
-            if path.is_file():
-                return path
-        self.skipTest("Windows font fixture unavailable")
+        return find_test_font()
 
     def _brief(self, title: str, subtitle: str) -> BrandBrief:
         return BrandBrief("1.0", {"name": "demo", "slug": "demo"},
@@ -33,6 +32,44 @@ class LocalizationAndQATests(unittest.TestCase):
         logo = root / "logo.png"
         Image.new("RGBA", (400, 100), (10, 80, 180, 255)).save(logo)
         return base, logo, {"company_logo": logo, "project_mark": logo}
+
+    def _complete_manifest(
+        self,
+        root: Path,
+        output: Path,
+        brief: BrandBrief,
+        *,
+        rights_status: str = "user_authorized",
+        asset_id: str = "enhe-natural-id",
+    ) -> tuple[dict[str, object], dict[str, Path]]:
+        brief_path = root / "brand-brief.json"
+        brief_path.write_text(json.dumps(asdict(brief), ensure_ascii=False), encoding="utf-8")
+        template = root / "template.json"
+        template.write_text('{"schema_version":"1.0"}', encoding="utf-8")
+        base = root / "base-source.png"
+        Image.new("RGBA", output.size if isinstance(output, Image.Image) else (2048, 2048), "white").save(base)
+        logo = root / "company-logo.png"
+        Image.new("RGBA", (400, 100), (10, 80, 180, 255)).save(logo)
+        font = self._font()
+        manifest = build_generation_manifest(
+            brief_path=brief_path,
+            assets=[{
+                "asset_id": asset_id,
+                "category": "company-logo",
+                "scope": "project",
+                "rights_status": rights_status,
+                "path": str(logo),
+                "sha256": _sha(logo),
+            }],
+            template_path=template,
+            font_paths={"heading": font, "body": font},
+            base_image_path=base,
+            output_path=output,
+            qa_state="INTERNAL_LOGO_QA",
+            rendered_copy=brief.copy,
+            output_type="logo-card",
+        )
+        return manifest, {"brief": brief_path, "template": template, "base": base, "logo": logo, "font": font}
 
     def test_localization_reuses_hashes_and_preserves_english(self) -> None:
         with TemporaryDirectory() as directory:
@@ -56,6 +93,8 @@ class LocalizationAndQATests(unittest.TestCase):
             self.assertNotEqual(en.output_path, zh.output_path)
             self.assertEqual(zh_manifest["rendered_copy"], chinese.copy)
             self.assertEqual(english.copy, english_copy_before)
+            self.assertEqual(chinese.copy["language"], "zh-CN")
+            self.assertNotIn("language", chinese.project)
 
     def test_validate_output_reports_automated_failures_and_manual_warnings(self) -> None:
         with TemporaryDirectory() as directory:
@@ -125,6 +164,176 @@ class LocalizationAndQATests(unittest.TestCase):
             report2 = validate_output(output, manifest={"rendered_copy": {}}, brief=self._brief("Title", "Subtitle"),
                                       asset_hashes={"company_logo": "hash"}, output_type="social_preview")
             self.assertTrue(report2.checks["dimensions"])
+
+    def test_complete_manifest_uses_category_rights_and_expected_observed_asset_hashes(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            output = root / "logo-card-1x1-v01.png"
+            Image.new("RGBA", (2048, 2048), "white").save(output)
+            brief = self._brief("Title", "Subtitle")
+            manifest, paths = self._complete_manifest(root, output, brief)
+            asset = manifest["assets"][0]
+            self.assertEqual(asset["asset_id"], "enhe-natural-id")
+            self.assertEqual(asset["category"], "company-logo")
+            self.assertEqual(asset["scope"], "project")
+            self.assertEqual(asset["rights_status"], "user_authorized")
+            self.assertEqual(asset["expected_sha256"], _sha(paths["logo"]))
+            self.assertEqual(asset["observed_sha256"], _sha(paths["logo"]))
+            report = validate_output(
+                output,
+                manifest=manifest,
+                brief=brief,
+                brief_path=paths["brief"],
+                output_root=root,
+                output_type="logo_card",
+            )
+            self.assertTrue(report.passed, report.failures)
+            self.assertTrue(report.checks["company_logo_hash"])
+
+    def test_manifest_integrity_rehashes_every_recorded_input_and_output(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            output = root / "logo-card-1x1-v01.png"
+            Image.new("RGBA", (2048, 2048), "white").save(output)
+            brief = self._brief("Title", "Subtitle")
+            manifest, paths = self._complete_manifest(root, output, brief)
+            for key, check in (
+                ("brief", "manifest_brief"),
+                ("template", "manifest_template"),
+                ("base", "manifest_base_image"),
+                ("logo", "manifest_assets"),
+            ):
+                with self.subTest(key=key):
+                    original = paths[key].read_bytes()
+                    paths[key].write_bytes(original + b"tampered")
+                    report = validate_output(
+                        output,
+                        manifest=manifest,
+                        brief=brief,
+                        brief_path=paths["brief"],
+                        output_root=root,
+                        output_type="logo_card",
+                    )
+                    self.assertFalse(report.checks[check])
+                    paths[key].write_bytes(original)
+
+            original_output = output.read_bytes()
+            Image.new("RGBA", (2048, 2048), "black").save(output)
+            report = validate_output(
+                output,
+                manifest=manifest,
+                brief=brief,
+                brief_path=paths["brief"],
+                output_root=root,
+                output_type="logo_card",
+            )
+            self.assertFalse(report.checks["manifest_output"])
+            output.write_bytes(original_output)
+
+            font_entry = manifest["fonts"]["heading"]
+            font_entry["sha256"] = "0" * 64
+            report = validate_output(
+                output,
+                manifest=manifest,
+                brief=brief,
+                brief_path=paths["brief"],
+                output_root=root,
+                output_type="logo_card",
+            )
+            self.assertFalse(report.checks["manifest_fonts"])
+
+    def test_qa_fully_decodes_png_and_requires_rgb_or_rgba(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            brief = self._brief("Title", "Subtitle")
+            output = root / "logo-card-1x1-v01.png"
+            Image.new("RGBA", (2048, 2048), "white").save(output)
+            manifest, paths = self._complete_manifest(root, output, brief)
+            output.write_bytes(output.read_bytes()[:-64])
+            report = validate_output(
+                output,
+                manifest=manifest,
+                brief=brief,
+                brief_path=paths["brief"],
+                output_root=root,
+                output_type="logo_card",
+            )
+            self.assertFalse(report.checks["png_decode"])
+
+            palette = root / "palette-v01.png"
+            Image.new("P", (2048, 2048)).save(palette)
+            palette_manifest, palette_paths = self._complete_manifest(root, palette, brief)
+            report = validate_output(
+                palette,
+                manifest=palette_manifest,
+                brief=brief,
+                brief_path=palette_paths["brief"],
+                output_root=root,
+                output_type="logo_card",
+            )
+            self.assertFalse(report.checks["color_mode"])
+
+    def test_manifest_output_path_must_match_and_output_must_be_versioned_and_contained(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            output = root / "logo-card-1x1.png"
+            other = root / "other-v01.png"
+            Image.new("RGBA", (2048, 2048), "white").save(output)
+            Image.new("RGBA", (2048, 2048), "white").save(other)
+            brief = self._brief("Title", "Subtitle")
+            manifest, paths = self._complete_manifest(root, output, brief)
+            report = validate_output(
+                other,
+                manifest=manifest,
+                brief=brief,
+                brief_path=paths["brief"],
+                output_root=root,
+                output_type="logo_card",
+            )
+            self.assertFalse(report.checks["output_manifest_path"])
+            report = validate_output(
+                output,
+                manifest=manifest,
+                brief=brief,
+                brief_path=paths["brief"],
+                output_root=root,
+                output_type="logo_card",
+            )
+            self.assertFalse(report.checks["versioned_output"])
+
+            outside = root.parent / "outside-v01.png"
+            try:
+                Image.new("RGBA", (2048, 2048), "white").save(outside)
+                outside_manifest, outside_paths = self._complete_manifest(root, outside, brief)
+                report = validate_output(
+                    outside,
+                    manifest=outside_manifest,
+                    brief=brief,
+                    brief_path=outside_paths["brief"],
+                    output_root=root,
+                    output_type="logo_card",
+                )
+                self.assertFalse(report.checks["output_contained"])
+            finally:
+                outside.unlink(missing_ok=True)
+
+    def test_non_authorized_manifest_asset_fails_closed(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            output = root / "logo-card-1x1-v01.png"
+            Image.new("RGBA", (2048, 2048), "white").save(output)
+            brief = self._brief("Title", "Subtitle")
+            manifest, paths = self._complete_manifest(root, output, brief, rights_status="unknown")
+            report = validate_output(
+                output,
+                manifest=manifest,
+                brief=brief,
+                brief_path=paths["brief"],
+                output_root=root,
+                output_type="logo_card",
+            )
+            self.assertFalse(report.checks["manifest_assets"])
+            self.assertFalse(report.checks["company_logo_hash"])
 
 
 def _sha(path: Path) -> str:

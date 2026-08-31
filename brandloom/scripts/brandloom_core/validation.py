@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import dataclass
+import hashlib
+from io import BytesIO
 import re
 from pathlib import Path
 from typing import Iterable, Mapping
 
-from PIL import Image
+from PIL import Image, ImageCms
 
 from .models import BrandBrief
 
@@ -52,12 +54,13 @@ def localize_brief(
     if not isinstance(replacement, Mapping):
         raise TypeError("copy must be a mapping")
     project = deepcopy(brief.project)
+    translated_copy = deepcopy(dict(replacement))
     if language:
-        project["language"] = language
+        translated_copy["language"] = language
     return BrandBrief(
         schema_version=brief.schema_version,
         project=project,
-        copy=deepcopy(dict(replacement)),
+        copy=translated_copy,
         style=deepcopy(brief.style),
         fonts=deepcopy(brief.fonts),
         assets=deepcopy(brief.assets),
@@ -80,7 +83,29 @@ def _brief_copy(brief: BrandBrief | Mapping[str, object]) -> tuple[bool, Mapping
     valid = all(isinstance(value, Mapping) for value in values.values())
     if not valid:
         return False, {}
-    return True, values["copy"]  # type: ignore[return-value]
+    copy = values["copy"]
+    assert isinstance(copy, Mapping)
+    rendered: dict[str, object] = {}
+    for key, value in copy.items():
+        if key in {"language", "direction"}:
+            if value is not None and not isinstance(value, str):
+                return False, {}
+            continue
+        if key not in {"title", "subtitle", "value_line", "features"}:
+            if value not in (None, "", (), [], {}):
+                return False, {}
+            continue
+        if value in (None, "", (), []):
+            continue
+        if key == "features":
+            if not isinstance(value, (list, tuple)) or any(not isinstance(item, str) for item in value):
+                return False, {}
+            rendered[key] = list(value)
+        elif not isinstance(value, str):
+            return False, {}
+        else:
+            rendered[key] = value
+    return True, rendered
 
 
 def _company_logo_hash(manifest: Mapping[str, object], asset_hashes: Mapping[str, object]) -> str:
@@ -95,8 +120,14 @@ def _company_logo_hash(manifest: Mapping[str, object], asset_hashes: Mapping[str
     if isinstance(assets, Iterable) and not isinstance(assets, (str, bytes)):
         for entry in assets:
             if isinstance(entry, Mapping):
+                category = str(entry.get("category", ""))
+                rights = str(entry.get("rights_status", ""))
+                if category == "company-logo":
+                    if rights and rights != "user_authorized":
+                        return ""
+                    return str(entry.get("observed_sha256", entry.get("sha256", "")))
                 asset_id = str(entry.get("asset_id", "")).lower()
-                if asset_id in {"company_logo", "company-logo", "logo"} or asset_id.startswith("logo-"):
+                if not category and (asset_id in {"company_logo", "company-logo", "logo"} or asset_id.startswith("logo-")):
                     return str(entry.get("sha256", ""))
     return ""
 
@@ -110,6 +141,118 @@ def _path_collision(output_path: Path, existing: Iterable[object] | None) -> boo
         if candidate == target:
             return True
     return False
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _valid_sha256(value: object) -> bool:
+    return isinstance(value, str) and bool(re.fullmatch(r"[0-9a-fA-F]{64}", value))
+
+
+def _recorded_path(value: object, base: Path | None) -> Path | None:
+    if not isinstance(value, str) or not value:
+        return None
+    path = Path(value)
+    if not path.is_absolute():
+        path = (base or Path.cwd()) / path
+    return path.resolve()
+
+
+def _entry_integrity(
+    entry: object,
+    *,
+    base: Path | None,
+    expected_path: Path | None = None,
+) -> bool:
+    if not isinstance(entry, Mapping):
+        return False
+    path = _recorded_path(entry.get("path"), base)
+    digest = entry.get("sha256")
+    if path is None or not path.is_file() or not _valid_sha256(digest):
+        return False
+    if expected_path is not None and path != Path(expected_path).resolve():
+        return False
+    return _sha256(path) == str(digest).lower()
+
+
+def _asset_integrity(entry: object, *, base: Path | None) -> bool:
+    if not isinstance(entry, Mapping):
+        return False
+    if not all(isinstance(entry.get(key), str) and str(entry[key]).strip() for key in (
+        "asset_id", "category", "scope", "rights_status", "path",
+    )):
+        return False
+    if entry.get("rights_status") != "user_authorized":
+        return False
+    expected = entry.get("expected_sha256")
+    observed = entry.get("observed_sha256")
+    if not _valid_sha256(expected) or not _valid_sha256(observed) or str(expected).lower() != str(observed).lower():
+        return False
+    path = _recorded_path(entry.get("path"), base)
+    if path is None or not path.is_file() or _sha256(path) != str(observed).lower():
+        return False
+    digest = entry.get("sha256")
+    return not digest or (isinstance(digest, str) and digest.lower() == str(observed).lower())
+
+
+def _host_request_integrity(value: object, *, base: Path | None) -> bool:
+    if value is None:
+        return True
+    if not isinstance(value, Mapping) or value.get("backend") != "host_builtin_image_tool":
+        return False
+    references = value.get("reference_assets", [])
+    if not isinstance(references, list):
+        return False
+    for entry in references:
+        if not isinstance(entry, Mapping):
+            return False
+        path = _recorded_path(entry.get("path"), base)
+        digest = entry.get("sha256")
+        if (
+            path is None
+            or not path.is_file()
+            or not _valid_sha256(digest)
+            or _sha256(path) != str(digest).lower()
+            or entry.get("rights_status") != "user_authorized"
+            or entry.get("category") != "ip-character"
+            or not isinstance(entry.get("profile_cues"), str)
+            or not entry.get("profile_cues")
+        ):
+            return False
+    accepted = value.get("accepted_logo")
+    if accepted is not None and not _entry_integrity(accepted, base=base):
+        return False
+    return True
+
+
+def _png_checks(output: Path, expected_dimensions: tuple[int, int]) -> dict[str, bool]:
+    result = {"png_decode": False, "dimensions": False, "color_mode": False, "srgb": False}
+    if not output.is_file():
+        return result
+    try:
+        with Image.open(output) as image:
+            image.load()
+            result["png_decode"] = image.format == "PNG"
+            result["dimensions"] = image.size == expected_dimensions
+            result["color_mode"] = image.mode in {"RGB", "RGBA"}
+            profile_bytes = image.info.get("icc_profile")
+            if profile_bytes is None:
+                result["srgb"] = result["color_mode"]
+            elif isinstance(profile_bytes, bytes):
+                try:
+                    profile = ImageCms.ImageCmsProfile(BytesIO(profile_bytes))
+                    result["srgb"] = "srgb" in ImageCms.getProfileDescription(profile).casefold()
+                except (ImageCms.PyCMSError, OSError, ValueError):
+                    result["srgb"] = False
+    except (OSError, SyntaxError, ValueError):
+        pass
+    return result
 
 
 def validate_output(
@@ -126,6 +269,9 @@ def validate_output(
     logo_card_ip: Iterable[object] | None = None,
     confirmed_ip_count: int = 3,
     manual_visual_checks: bool = False,
+    brief_path: Path | None = None,
+    manifest_path: Path | None = None,
+    output_root: Path | None = None,
 ) -> QAReport:
     """Run offline automated checks and report manual visual review separately."""
     output = Path(output_path)
@@ -138,15 +284,52 @@ def validate_output(
     checks["output_exists"] = output.is_file()
     if not checks["output_exists"]:
         failures.append("output_missing")
-    checks["dimensions"] = False
-    if output.is_file():
-        try:
-            with Image.open(output) as image:
-                checks["dimensions"] = image.size == expected_dimensions
-        except (OSError, ValueError):
-            checks["dimensions"] = False
-    if not checks["dimensions"]:
-        failures.append("dimensions")
+    checks.update(_png_checks(output, expected_dimensions))
+    for name in ("png_decode", "dimensions", "color_mode", "srgb"):
+        if not checks[name]:
+            failures.append(name)
+
+    manifest_base = Path(manifest_path).resolve().parent if manifest_path is not None else None
+    strict_manifest = any(key in payload for key in ("brief", "template", "fonts", "base_image"))
+    if strict_manifest:
+        checks["manifest_brief"] = _entry_integrity(payload.get("brief"), base=manifest_base, expected_path=brief_path)
+        checks["manifest_template"] = _entry_integrity(payload.get("template"), base=manifest_base)
+        checks["manifest_base_image"] = _entry_integrity(payload.get("base_image"), base=manifest_base)
+        checks["manifest_output"] = _entry_integrity(payload.get("output"), base=manifest_base, expected_path=output)
+        fonts = payload.get("fonts")
+        checks["manifest_fonts"] = (
+            isinstance(fonts, Mapping)
+            and bool(fonts)
+            and all(_entry_integrity(entry, base=manifest_base) for entry in fonts.values())
+        )
+        assets = payload.get("assets")
+        checks["manifest_assets"] = (
+            isinstance(assets, list)
+            and bool(assets)
+            and all(_asset_integrity(entry, base=manifest_base) for entry in assets)
+        )
+        checks["manifest_host_request"] = _host_request_integrity(payload.get("host_request"), base=manifest_base)
+        output_entry = payload.get("output")
+        recorded_output = _recorded_path(output_entry.get("path"), manifest_base) if isinstance(output_entry, Mapping) else None
+        checks["output_manifest_path"] = recorded_output == output.resolve()
+    else:
+        for name in (
+            "manifest_brief", "manifest_template", "manifest_base_image", "manifest_output",
+            "manifest_fonts", "manifest_assets", "manifest_host_request", "output_manifest_path",
+        ):
+            checks[name] = True
+    if output_root is None:
+        checks["output_contained"] = True
+    else:
+        root = Path(output_root).resolve()
+        checks["output_contained"] = output.resolve().is_relative_to(root)
+    for name in (
+        "manifest_brief", "manifest_template", "manifest_base_image", "manifest_output",
+        "manifest_fonts", "manifest_assets", "manifest_host_request", "output_manifest_path",
+        "output_contained",
+    ):
+        if not checks[name]:
+            failures.append(name)
     logo_hash = _company_logo_hash(payload, hashes)
     checks["company_logo_hash"] = bool(logo_hash)
     if not checks["company_logo_hash"]:
@@ -165,14 +348,14 @@ def validate_output(
         checks["manifest_copy"] = True
     collision_values = existing_output_paths if existing_output_paths is not None else existing_outputs
     collision = _path_collision(output, collision_values)
-    versioned = bool(re.search(r"-v\d+(?=\.[^.]+$)", output.name))
-    checks["versioned_output"] = not collision or versioned
+    versioned = bool(re.search(r"-v\d{2,}(?=\.png$)", output.name, flags=re.IGNORECASE))
+    checks["versioned_output"] = not collision and versioned
     if not checks["versioned_output"]:
         failures.append("output_collision")
     rights_fail = False
     for status in custom_ip_rights or ():
         value = status.get("rights_status", status.get("status", "")) if isinstance(status, Mapping) else status
-        if str(value).lower() == "analysis_only":
+        if str(value).lower() != "user_authorized":
             rights_fail = True
     checks["custom_ip_rights"] = not rights_fail
     if rights_fail:

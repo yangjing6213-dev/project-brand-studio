@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
@@ -11,6 +12,7 @@ from brandloom.scripts.brandloom_core.prompt_builder import (
     build_base_prompt,
     validate_generated_path,
 )
+from brandloom.scripts.brandloom_core import prompt_builder
 
 
 class PromptBuilderTests(unittest.TestCase):
@@ -115,6 +117,52 @@ class PromptBuilderTests(unittest.TestCase):
             Image.new("RGB", (100, 100), "white").save(wrong)
             with self.assertRaises(ValueError):
                 validate_generated_path(wrong)
+
+    def test_structured_host_request_exposes_authorized_builtin_ip_references(self) -> None:
+        brief = self._brief()
+        brief = BrandBrief(
+            brief.schema_version,
+            brief.project,
+            brief.copy,
+            brief.style,
+            brief.fonts,
+            {"logo_card_ip": ["author-anime", "tuotuo", "xingbi"]},
+            brief.outputs,
+        )
+        request = prompt_builder.build_host_request(brief, "logo_card")
+        self.assertEqual(request["output_type"], "logo_card")
+        self.assertEqual(request["dimensions"], [2048, 2048])
+        references = request["reference_assets"]
+        self.assertEqual([entry["asset_id"] for entry in references], ["author-anime", "tuotuo", "xingbi"])
+        expected_cues = {
+            "author-anime": "black tousled hair",
+            "tuotuo": "square black glasses",
+            "xingbi": "yellow five-point star",
+        }
+        for entry in references:
+            path = Path(entry["path"])
+            self.assertTrue(path.is_absolute())
+            self.assertTrue(path.is_file())
+            self.assertEqual(entry["category"], "ip-character")
+            self.assertEqual(entry["rights_status"], "user_authorized")
+            self.assertEqual(entry["sha256"], hashlib.sha256(path.read_bytes()).hexdigest())
+            self.assertIn(expected_cues[entry["asset_id"]], entry["profile_cues"].lower())
+            self.assertIn(expected_cues[entry["asset_id"]], request["prompt"].lower())
+
+    def test_cover_host_request_audits_the_accepted_logo_path_and_hash(self) -> None:
+        with TemporaryDirectory() as directory:
+            accepted_logo = Path(directory) / "logo-card-v01.png"
+            Image.new("RGBA", (2048, 2048), "white").save(accepted_logo)
+            request = prompt_builder.build_host_request(
+                self._brief(),
+                "cover",
+                accepted_logo_path=accepted_logo,
+            )
+            self.assertEqual(request["accepted_logo"]["path"], str(accepted_logo.resolve()))
+            self.assertEqual(
+                request["accepted_logo"]["sha256"],
+                hashlib.sha256(accepted_logo.read_bytes()).hexdigest(),
+            )
 
 
 if __name__ == "__main__":

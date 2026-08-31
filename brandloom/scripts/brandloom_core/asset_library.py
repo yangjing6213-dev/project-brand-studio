@@ -7,6 +7,7 @@ import json
 import os
 import re
 import shutil
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable
@@ -27,6 +28,16 @@ _GENERATION_CATEGORIES = {
 _COMPANY_LOGO_FORBIDDEN = (
     "redraw", "distort", "change_letterforms", "change_geometry", "use_as_training_reference"
 )
+
+
+class AssetManifestError(ValueError):
+    """Raised when an existing asset manifest cannot be trusted."""
+
+
+@dataclass(frozen=True)
+class ResolvedAsset:
+    record: AssetRecord
+    path: Path
 
 
 def sha256_file(path: Path) -> str:
@@ -60,10 +71,14 @@ def _load_records(root: Path) -> list[AssetRecord]:
         data = json.loads(path.read_text(encoding="utf-8"))
         values = data.get("assets", data) if isinstance(data, dict) else data
         if not isinstance(values, list):
-            return []
+            raise AssetManifestError(f"asset manifest assets must be a list: {path}")
+        if any(not isinstance(item, dict) for item in values):
+            raise AssetManifestError(f"asset manifest contains a non-record entry: {path}")
         return [_construct(item, AssetRecord) for item in values]
-    except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError):
-        return []
+    except AssetManifestError:
+        raise
+    except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+        raise AssetManifestError(f"invalid existing asset manifest: {path}") from exc
 
 
 def _write_records(root: Path, records: Iterable[AssetRecord]) -> None:
@@ -102,7 +117,7 @@ def register_asset(
     category: AssetCategory,
     scope: AssetScope,
     workspace: Path | None = None,
-    rights_status: RightsStatus = RightsStatus.USER_AUTHORIZED,
+    rights_status: RightsStatus = RightsStatus.UNKNOWN,
     save_scope_confirmed: bool = False,
     make_default: bool = False,
     asset_id: str | None = None,
@@ -123,6 +138,8 @@ def register_asset(
         raise ValueError("skill-defaults assets are read-only")
     if category in _GENERATION_CATEGORIES and rights_status in (RightsStatus.MISSING, RightsStatus.UNKNOWN):
         raise ValueError(f"{rights_status.value} rights cannot be used for generation-capable assets")
+    if make_default and rights_status is not RightsStatus.USER_AUTHORIZED:
+        raise ValueError("only user_authorized assets may become defaults")
     try:
         with Image.open(source) as image:
             image.verify()
@@ -198,9 +215,10 @@ def list_assets(
     records: list[AssetRecord] = []
     for item_scope in scopes:
         try:
-            records.extend(_load_records(_scope_root(_as_scope(item_scope), workspace)))
+            root = _scope_root(_as_scope(item_scope), workspace)
         except ValueError:
             continue
+        records.extend(_load_records(root))
     if category is not None:
         category = _as_category(category)
         records = [record for record in records if record.category is category]
@@ -224,8 +242,21 @@ def set_default(
     category, scope = _as_category(category), _as_scope(scope)
     root = _scope_root(scope, workspace)
     records = _load_records(root)
-    if not any(record.asset_id == asset_id for record in records):
+    candidates = [
+        record for record in records
+        if record.asset_id == asset_id and record.category is category and record.scope is scope
+    ]
+    if not candidates:
         raise ValueError(f"asset not found: {asset_id}")
+    if exact_record is not None:
+        candidates = [
+            record for record in candidates
+            if record.sha256 == exact_record.sha256 and record.relative_path == exact_record.relative_path
+        ]
+    if not candidates:
+        raise ValueError(f"asset not found: {asset_id}")
+    if any(record.rights_status is not RightsStatus.USER_AUTHORIZED for record in candidates):
+        raise ValueError("only user_authorized assets may become defaults")
     selected = False
     updated: list[AssetRecord] = []
     for record in records:
@@ -252,5 +283,116 @@ def resolve_default(
     for item_scope in scopes:
         for record in list_assets(workspace, scope=item_scope, category=category):
             if record.default_scope is item_scope:
+                if record.rights_status is not RightsStatus.USER_AUTHORIZED:
+                    raise ValueError("non-authorized asset cannot be resolved as a default")
                 return record
     return None
+
+
+def _record_path(record: AssetRecord, workspace: Path | None, skill_root: Path) -> Path:
+    if record.scope is AssetScope.PROJECT:
+        if workspace is None:
+            raise ValueError("workspace is required for project assets")
+        root = project_root(workspace)
+    elif record.scope is AssetScope.PERSONAL:
+        root = resolve_personal_root()
+    else:
+        root = skill_root
+    path = (root / record.relative_path).resolve()
+    root = root.resolve()
+    if not path.is_relative_to(root):
+        raise ValueError(f"asset path escapes its scope root: {record.relative_path}")
+    return path
+
+
+def _skill_default_records(category: AssetCategory, skill_root: Path) -> tuple[AssetRecord, ...]:
+    if category is AssetCategory.COMPANY_LOGO:
+        parent = skill_root / "assets" / "defaults" / "company-logo"
+    elif category is AssetCategory.IP_CHARACTER:
+        parent = skill_root / "assets" / "defaults" / "ip"
+    else:
+        return ()
+    records: list[AssetRecord] = []
+    if not parent.is_dir():
+        return ()
+    for directory in sorted((path for path in parent.iterdir() if path.is_dir()), key=lambda path: path.name):
+        image_path = directory / "reference.png"
+        provenance_path = directory / "provenance.json"
+        if not image_path.is_file() or not provenance_path.is_file():
+            continue
+        try:
+            provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise AssetManifestError(f"invalid Skill-default provenance: {provenance_path}") from exc
+        if provenance.get("authorization_status") != RightsStatus.USER_AUTHORIZED.value:
+            continue
+        if provenance.get("distribution_scope") != "public_skill_package":
+            continue
+        digest = sha256_file(image_path)
+        expected = provenance.get("reference_sha256", provenance.get("sha256"))
+        if not isinstance(expected, str) or digest != expected.lower():
+            raise AssetManifestError(f"Skill-default hash mismatch: {image_path}")
+        try:
+            with Image.open(image_path) as image:
+                image.load()
+                width, height = image.size
+        except Exception as exc:
+            raise AssetManifestError(f"Skill-default is not a readable image: {image_path}") from exc
+        records.append(
+            AssetRecord(
+                asset_id=directory.name,
+                category=category,
+                scope=AssetScope.SKILL_DEFAULTS,
+                relative_path=image_path.relative_to(skill_root).as_posix(),
+                sha256=digest,
+                width=width,
+                height=height,
+                rights_status=RightsStatus.USER_AUTHORIZED,
+                save_scope_confirmed=True,
+                default_scope=AssetScope.SKILL_DEFAULTS,
+                allowed_operations=("scale", "position") if category is AssetCategory.COMPANY_LOGO else (),
+                forbidden_operations=_COMPANY_LOGO_FORBIDDEN if category is AssetCategory.COMPANY_LOGO else (),
+                created_at=str(provenance.get("confirmed_at", "")),
+            )
+        )
+    return tuple(records)
+
+
+def _resolved(record: AssetRecord, workspace: Path | None, skill_root: Path) -> ResolvedAsset:
+    if record.rights_status is not RightsStatus.USER_AUTHORIZED:
+        raise ValueError(f"asset is not authorized for composition: {record.asset_id}")
+    path = _record_path(record, workspace, skill_root)
+    if not path.is_file():
+        raise ValueError(f"resolved asset is missing: {path}")
+    observed = sha256_file(path)
+    if observed != record.sha256:
+        raise ValueError(f"resolved asset hash mismatch: {record.asset_id}")
+    return ResolvedAsset(record, path)
+
+
+def resolve_asset(
+    category: AssetCategory,
+    *,
+    workspace: Path | None,
+    explicit_asset_id: str | None = None,
+    skill_root: Path | None = None,
+) -> ResolvedAsset | None:
+    """Resolve explicit -> project -> personal -> authorized Skill default."""
+    category = _as_category(category)
+    skill_root = Path(skill_root or Path(__file__).resolve().parents[2]).resolve()
+    scoped_records = (
+        *list_assets(workspace, scope=AssetScope.PROJECT, category=category),
+        *list_assets(workspace, scope=AssetScope.PERSONAL, category=category),
+        *_skill_default_records(category, skill_root),
+    )
+    if explicit_asset_id:
+        for record in scoped_records:
+            if record.asset_id == explicit_asset_id:
+                return _resolved(record, workspace, skill_root)
+        raise ValueError(f"explicit asset not found: {explicit_asset_id}")
+    for scope in (AssetScope.PROJECT, AssetScope.PERSONAL):
+        default = resolve_default(category, scope, workspace)
+        if default is not None:
+            return _resolved(default, workspace, skill_root)
+    skill_records = [record for record in scoped_records if record.scope is AssetScope.SKILL_DEFAULTS]
+    return _resolved(skill_records[0], workspace, skill_root) if skill_records else None

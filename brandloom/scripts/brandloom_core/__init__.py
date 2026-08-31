@@ -2,8 +2,11 @@
 
 from .json_io import read_json_dataclass, write_json_dataclass
 from .asset_library import (
+    AssetManifestError,
+    ResolvedAsset,
     list_assets,
     register_asset,
+    resolve_asset,
     resolve_default,
     set_default,
     sha256_file,
@@ -22,17 +25,20 @@ from .models import (
 
 __all__ = [
     "AssetCategory",
+    "AssetManifestError",
     "AssetRecord",
     "AssetScope",
     "BrandBrief",
     "QAState",
     "QASession",
     "RightsStatus",
+    "ResolvedAsset",
     "TaskMode",
     "read_json_dataclass",
     "write_json_dataclass",
     "list_assets",
     "register_asset",
+    "resolve_asset",
     "resolve_default",
     "set_default",
     "sha256_file",

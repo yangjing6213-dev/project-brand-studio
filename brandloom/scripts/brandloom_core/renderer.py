@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import hashlib
 import json
 from pathlib import Path
 from typing import Mapping
 
-from PIL import Image, ImageColor, ImageDraw, ImageFont
+from PIL import Image, ImageCms, ImageColor, ImageDraw, ImageFont
 
 from .layout import TextLayout, TextOverflowError, fit_text_box
 from .models import BrandBrief
@@ -26,6 +26,7 @@ class RenderResult:
     source_hashes: dict[str, str]
     logo_size: tuple[int, int] = (0, 0)
     template_id: str = ""
+    rendered_copy: dict[str, object] = field(default_factory=dict)
 
 
 def load_template(path: Path) -> dict[str, object]:
@@ -83,6 +84,33 @@ def _copy(brief: BrandBrief | Mapping[str, object]) -> Mapping[str, object]:
     return value if isinstance(value, Mapping) else {}
 
 
+_RENDERED_COPY_FIELDS = ("title", "subtitle", "value_line", "features")
+_COPY_METADATA_FIELDS = {"language", "direction"}
+
+
+def rendered_copy_values(brief: BrandBrief | Mapping[str, object]) -> dict[str, object]:
+    copy = _copy(brief)
+    for key, value in copy.items():
+        if key in _RENDERED_COPY_FIELDS or key in _COPY_METADATA_FIELDS:
+            continue
+        if value not in (None, "", (), [], {}):
+            raise BrandIntegrityError(f"unsupported non-empty copy field: {key}")
+    rendered: dict[str, object] = {}
+    for key in _RENDERED_COPY_FIELDS:
+        value = copy.get(key)
+        if value in (None, "", (), []):
+            continue
+        if key == "features":
+            if not isinstance(value, (list, tuple)) or any(not isinstance(item, str) for item in value):
+                raise BrandIntegrityError("copy.features must be a list of strings")
+            rendered[key] = list(value)
+        elif not isinstance(value, str):
+            raise BrandIntegrityError(f"copy.{key} must be a string")
+        else:
+            rendered[key] = value
+    return rendered
+
+
 def render_brand_asset(
     template_path: Path,
     brief: BrandBrief | Mapping[str, object],
@@ -126,7 +154,7 @@ def render_brand_asset(
         x = int(slot["x"]) + (int(slot["w"]) - fitted.width) // 2
         y = int(slot["y"]) + (int(slot["h"]) - fitted.height) // 2
         output.alpha_composite(fitted, (x, y))
-    copy = _copy(brief)
+    rendered_copy = rendered_copy_values(brief)
     draw = ImageDraw.Draw(output)
     foreground = "#111111"
     if isinstance(brief, BrandBrief):
@@ -137,18 +165,19 @@ def render_brand_asset(
         fill = ImageColor.getrgb(foreground)
     except ValueError as exc:
         raise BrandIntegrityError(f"invalid foreground color: {foreground}") from exc
-    for key, role in (("title", "heading"), ("subtitle", "body")):
-        value = copy.get(key)
+    for key, role in (("title", "heading"), ("subtitle", "body"), ("value_line", "body"), ("features", "body")):
+        value = rendered_copy.get(key)
         if not value:
             continue
         slot = _slot(template["slots"], key)  # type: ignore[arg-type]
-        font_path = font_paths.get(role) or font_paths.get("heading")
+        font_path = font_paths.get(role)
         if font_path is None:
             raise BrandIntegrityError(f"font path missing for {role}")
         if isinstance(font_path, (str, Path)) and Path(font_path).is_file():
             hashes.setdefault(f"font_{role}", _sha(Path(font_path)))
+        text = "\n".join(f"• {item}" for item in value) if key == "features" else str(value)
         layout = fit_text_box(
-            str(value),
+            text,
             (int(slot["w"]), int(slot["h"])),
             font_path,
             max_font_size=int(slot.get("max_font_size", 176)),
@@ -159,11 +188,12 @@ def render_brand_asset(
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     stem = Path(template_path).stem
-    destination = output_dir / f"{stem}.png"
-    version = 2
+    version = 1
+    destination = output_dir / f"{stem}-v{version:02d}.png"
     while destination.exists():
-        destination = output_dir / f"{stem}-v{version:02d}.png"
         version += 1
+        destination = output_dir / f"{stem}-v{version:02d}.png"
     output = output.convert("RGBA")
-    output.save(destination, format="PNG")
-    return RenderResult(destination, width, height, hashes, logo_size, stem)
+    srgb_profile = ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes()
+    output.save(destination, format="PNG", icc_profile=srgb_profile)
+    return RenderResult(destination, width, height, hashes, logo_size, stem, rendered_copy)

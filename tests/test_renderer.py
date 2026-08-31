@@ -9,9 +9,11 @@ from PIL import Image
 
 from brandloom.scripts.brandloom_core.models import BrandBrief
 from brandloom.scripts.brandloom_core.renderer import (
+    BrandIntegrityError,
     TextOverflowError,
     render_brand_asset,
 )
+from tests.font_test_utils import find_test_font
 
 
 class RendererTests(unittest.TestCase):
@@ -27,8 +29,7 @@ class RendererTests(unittest.TestCase):
         )
 
     def _font(self) -> Path:
-        candidates = [Path(r"C:\Windows\Fonts\arial.ttf"), Path(r"C:\Windows\Fonts\segoeui.ttf")]
-        return next((p for p in candidates if p.is_file()), candidates[0])
+        return find_test_font()
 
     def _fixtures(self, root: Path) -> tuple[Path, Path]:
         base = root / "base.png"
@@ -120,8 +121,85 @@ class RendererTests(unittest.TestCase):
                 font_paths={"heading": self._font(), "body": self._font()},
                 output_dir=root / "out",
             )
+            self.assertTrue(first.output_path.name.endswith("-v01.png"))
             self.assertTrue(second.output_path.name.endswith("-v02.png"))
             self.assertEqual(first.output_path.read_bytes(), original)
+
+    def test_body_font_does_not_silently_fall_back_to_heading(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            base, logo = self._fixtures(root)
+            with self.assertRaises(BrandIntegrityError):
+                render_brand_asset(
+                    Path("brandloom/templates/logo-card-1x1.json"),
+                    self._brief(),
+                    base_image=base,
+                    asset_paths={"company_logo": logo},
+                    font_paths={"heading": self._font()},
+                    output_dir=root / "out",
+                )
+
+    def test_value_line_and_features_are_rendered_and_audited(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            base, logo = self._fixtures(root)
+            brief = self._brief()
+            brief = BrandBrief(
+                brief.schema_version,
+                brief.project,
+                {
+                    "language": "en",
+                    "title": "Hello BrandLoom",
+                    "subtitle": "A deterministic brand system",
+                    "value_line": "Confirm before generation",
+                    "features": ["Traceable assets", "No overwrite"],
+                },
+                brief.style,
+                brief.fonts,
+                brief.assets,
+                brief.outputs,
+            )
+            result = render_brand_asset(
+                Path("brandloom/templates/cover-2x1.json"),
+                brief,
+                base_image=base,
+                asset_paths={"company_logo": logo},
+                font_paths={"heading": self._font(), "body": self._font()},
+                output_dir=root / "out",
+            )
+            self.assertEqual(
+                result.rendered_copy,
+                {
+                    "title": "Hello BrandLoom",
+                    "subtitle": "A deterministic brand system",
+                    "value_line": "Confirm before generation",
+                    "features": ["Traceable assets", "No overwrite"],
+                },
+            )
+
+    def test_unknown_nonempty_copy_field_hard_stops(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            base, logo = self._fixtures(root)
+            brief = self._brief()
+            brief = BrandBrief(
+                brief.schema_version,
+                brief.project,
+                {**brief.copy, "cta": "Buy now"},
+                brief.style,
+                brief.fonts,
+                brief.assets,
+                brief.outputs,
+            )
+            with self.assertRaises(BrandIntegrityError):
+                render_brand_asset(
+                    Path("brandloom/templates/logo-card-1x1.json"),
+                    brief,
+                    base_image=base,
+                    asset_paths={"company_logo": logo},
+                    font_paths={"heading": self._font(), "body": self._font()},
+                    output_dir=root / "out",
+                )
 
     def test_templates_are_json_and_social_preview_is_2x1(self) -> None:
         for name in ("logo-card-1x1.json", "cover-2x1.json", "social-preview-2x1.json"):
