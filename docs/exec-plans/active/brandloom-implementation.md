@@ -43,10 +43,10 @@ Build the installable `brandloom` Codex Skill in repository `project-brand-studi
 - T5 asset library: commits `ad4ea8b` and `2091875`; fresh focused 7/7 and full 27/27, independent review plus scoped fix re-review approved.
 
 ## Current Work
-- Task 6 is blocked at the mandatory public-asset authorization gate. No staging files have been imported or copied into `brandloom/assets/defaults/`.
+- Task 6 has authorization A, but remains blocked because the three exact authorized source files are absent from both the linked worktree and repository root staging paths. No staging files have been imported or copied into `brandloom/assets/defaults/`.
 
 ## Remaining Work
-- Obtain explicit Task 6 choice A/B/C, then complete Tasks 6–12, final review, package, and finishing-branch menu.
+- Supply the three exact authorized source files at the required staging paths, then complete Tasks 6–12, final review, package, and finishing-branch menu.
 
 ## Failures
 - Baseline discovery cannot start because `tests/` does not exist in the planning baseline; this is expected for the empty scaffold and is retained as evidence, not treated as a product test failure.
@@ -64,7 +64,7 @@ Build the installable `brandloom` Codex Skill in repository `project-brand-studi
 - Use the bundled Python executable explicitly because the `py` launcher is absent.
 
 ## Open Risks
-- Task 6 cannot proceed until the user explicitly chooses A, B, or C for the exact staging files; no provenance or binary copying will occur before A. Required files are currently absent.
+- Task 6 has explicit choice A, but cannot proceed until the exact source files are supplied at the required staging paths; no provenance or binary copying will occur without those files.
 - Host image-generation availability is not yet established; if absent, visual acceptance must be reported PARTIAL.
 
 ## Final Acceptance
