@@ -11,14 +11,25 @@ from .models import BrandBrief
 _OUTPUT_SPECS = {"logo_card": ("1:1", (2048, 2048)), "cover": ("2:1", (2048, 1024))}
 
 
-def _ip_entries(brief: BrandBrief) -> list[tuple[str, str]]:
+_IP_ROLES = {
+    "author-anime": "presenter",
+    "tuotuo": "execution/system",
+    "xingbi": "feedback/result",
+}
+
+
+def _ip_entries(brief: BrandBrief, output_type: str) -> list[tuple[str, str]]:
     result: list[tuple[str, str]] = []
-    for entry in brief.assets.get("ip_profiles", []):
+    selected = brief.assets.get(f"{output_type}_ip")
+    if selected is None:
+        selected = brief.assets.get("ip_profiles", [])
+    for entry in selected:
         if isinstance(entry, dict):
             ip_id = str(entry.get("id", "")).strip()
-            role = str(entry.get("role", "")).strip() or "selected IP"
+            role = str(entry.get("role", "")).strip() or _IP_ROLES.get(ip_id, "selected IP")
         else:
-            ip_id, role = str(entry).strip(), "selected IP"
+            ip_id = str(entry).strip()
+            role = _IP_ROLES.get(ip_id, "selected IP")
         if ip_id:
             result.append((ip_id, role))
     return result
@@ -34,7 +45,7 @@ def build_base_prompt(brief: BrandBrief, output_type: str, *, shot_list=None, ex
     style = brief.style.get("profile") or brief.style.get("family") or "reference-adaptive"
     zones = brief.style.get("reserved_text_zones") or ["left third", "bottom band"]
     zones_text = ", ".join(str(zone) for zone in zones)
-    roles = ", ".join(f"{ip_id} ({role})" for ip_id, role in _ip_entries(brief)) or "no IP characters"
+    roles = ", ".join(f"{ip_id} ({role})" for ip_id, role in _ip_entries(brief, output_type)) or "no IP characters"
     shots = "" if not shot_list else " Shot list cues: " + "; ".join(map(str, shot_list)) + "."
     if output_type == "logo_card":
         scene = "Create a 1:1 real-scene base for a polished logo-card composition, with the selected IP roles integrated naturally."
@@ -49,7 +60,7 @@ def build_base_prompt(brief: BrandBrief, output_type: str, *, shot_list=None, ex
     )
 
 
-def validate_generated_path(path: Path) -> tuple[int, int]:
+def validate_generated_path(path: Path, expected=None) -> tuple[int, int]:
     path = Path(path)
     if not path.is_file():
         raise FileNotFoundError(path)
@@ -62,4 +73,14 @@ def validate_generated_path(path: Path) -> tuple[int, int]:
         raise ValueError(f"returned path is not a readable image: {path}") from exc
     if dimensions not in {spec[1] for spec in _OUTPUT_SPECS.values()}:
         raise ValueError(f"unsupported generated dimensions: {dimensions}")
+    if expected is not None:
+        if isinstance(expected, str):
+            try:
+                expected_dimensions = _OUTPUT_SPECS[expected][1]
+            except KeyError as exc:
+                raise ValueError(f"unsupported expected output type: {expected}") from exc
+        else:
+            expected_dimensions = tuple(expected)
+        if dimensions != expected_dimensions:
+            raise ValueError(f"generated dimensions {dimensions} do not match expected {expected_dimensions}")
     return dimensions

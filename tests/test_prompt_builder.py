@@ -55,6 +55,36 @@ class PromptBuilderTests(unittest.TestCase):
         self.assertIn("2:1", prompt)
         self.assertIn("reuse the accepted LOGO visual DNA", prompt)
 
+    def test_canonical_assets_select_ip_per_output_type(self) -> None:
+        brief = self._brief()
+        brief = BrandBrief(
+            schema_version=brief.schema_version,
+            project=brief.project,
+            copy=brief.copy,
+            style=brief.style,
+            fonts=brief.fonts,
+            assets={"logo_card_ip": ["tuotuo"], "cover_ip": ["author-anime", "xingbi"]},
+            outputs=brief.outputs,
+        )
+        logo_prompt = build_base_prompt(brief, "logo_card")
+        cover_prompt = build_base_prompt(brief, "cover")
+        self.assertIn("tuotuo", logo_prompt)
+        self.assertNotIn("author-anime", logo_prompt)
+        self.assertIn("author-anime", cover_prompt)
+        self.assertIn("xingbi", cover_prompt)
+
+    def test_validate_generated_path_can_enforce_output_type_dimensions(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            square = root / "square.png"
+            wide = root / "wide.png"
+            Image.new("RGB", (2048, 2048), "white").save(square)
+            Image.new("RGB", (2048, 1024), "white").save(wide)
+            with self.assertRaises(ValueError):
+                validate_generated_path(wide, expected="logo_card")
+            with self.assertRaises(ValueError):
+                validate_generated_path(square, expected="cover")
+
     def test_prompt_has_no_secret_or_provider_fallback_language(self) -> None:
         prompt = build_base_prompt(self._brief(), "logo_card")
         forbidden = ("OPENAI_API_KEY", "Images API", "image_gen.py", "redraw the company logo")
