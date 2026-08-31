@@ -16,7 +16,7 @@ description: 用于分析项目、对话、附件、链接和品牌素材，并�
 - `localize`：读取 `localization-and-editing.md` 与 `output-specs.md`，复用已确认底图、LOGO、项目标志、IP 和布局，只替换获确认文案与必要排版。
 - `variant`：读取 `localization-and-editing.md`、`composition-recipes.md`、`output-specs.md`，保持品牌档案，重新确认尺寸、平台或风格差异。
 - `custom-IP`：读取 `rights-and-provenance.md`、`brand-assets.md`，依次完成参考、抽象 profile、草稿、使用权和保存范围确认；未到 `user_authorized` 不得生成。
-- 缺少图片工具：仍可完成 analysis-only/plan-only，或交付已确认的本地合成计划；明确说明无法生成，不伪造调用结果。
+- 缺少图片工具：当前仅允许 host 内置 `host_builtin_image_tool`；仍可完成 analysis-only/plan-only，或交付已确认的本地合成计划。工具不可用、调用失败、空返回路径、图片缺失/不可读或严重比例不匹配时 hard-stop，明确说明无法生成，不伪造调用结果、不自动重试，不使用 API keys、Images API、第三方 provider 或递归 Codex。
 
 ## 阶段参考路由
 
@@ -24,4 +24,4 @@ description: 用于分析项目、对话、附件、链接和品牌素材，并�
 
 ## 生成结果处理
 
-图片工具只生成无关键文字、无公司 LOGO 的底图；使用 Pillow 确定性合成并写入 manifest。先执行内部 LOGO QA，再展示 LOGO 供用户验收，之后才生成封面；失败、尺寸不符、文字溢出或权利状态不合格时硬停止并返回相应阶段，不覆盖旧版本。
+图片工具只生成无关键文字、无公司 LOGO 的底图；使用 Pillow 确定性合成并写入 manifest。使用工具返回路径 exactly（原样），先执行内部 LOGO QA，再展示 LOGO 供用户验收，之后才生成封面；失败、尺寸不符、文字溢出或权利状态不合格时硬停止并返回相应阶段，不覆盖旧版本。

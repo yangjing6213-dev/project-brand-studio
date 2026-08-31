@@ -53,6 +53,38 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("GENERATION_READY", skill_text)
         self.assertIn("host_builtin_image_tool", skill_text)
 
+    def test_workflow_static_boundaries_and_menus(self) -> None:
+        workflow = (SKILL_ROOT / "references" / "qa-dialogue-workflow.md").read_text(encoding="utf-8")
+        style = (SKILL_ROOT / "references" / "style-presets.md").read_text(encoding="utf-8")
+        for profile in (
+            "bright-saas-real-scene",
+            "dark-neon-product",
+            "high-density-commercial",
+            "cinematic-monitor-hero",
+            "editorial-minimal-grid",
+            "soft-3d-brand-icon",
+        ):
+            self.assertIn(profile, style)
+        for operation in (
+            "scale",
+            "position",
+            "recolor_monochrome",
+            "opacity",
+            "external_shadow",
+            "redraw",
+            "distort",
+            "change_letterforms",
+            "change_geometry",
+            "use_as_training_reference",
+        ):
+            self.assertIn(operation, workflow)
+        for phrase in ("当前 host 仅允许", "空返回路径", "不可用或调用失败", "不得自动重试"):
+            self.assertIn(phrase, workflow)
+        for option in ("GitHub Social Preview 1280x640", "logo-only", "cover-only", "bilingual", "custom dimensions"):
+            self.assertIn(option, workflow)
+        self.assertIn("保留", workflow)
+        self.assertIn("必须重新确认", workflow)
+
 
 if __name__ == "__main__":
     unittest.main()
