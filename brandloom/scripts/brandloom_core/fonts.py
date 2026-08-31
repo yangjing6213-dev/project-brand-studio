@@ -9,6 +9,8 @@ from pathlib import Path
 import re
 import sys
 
+from PIL import ImageFont
+
 
 _ROLES = ("heading", "body", "latin")
 _FONT_SUFFIXES = {".ttf", ".otf", ".ttc", ".otc"}
@@ -83,6 +85,16 @@ def _family_key(value: str) -> str:
     return re.sub(r"\s+", " ", " ".join(words)).strip().casefold()
 
 
+def _embedded_family_key(path: Path) -> str | None:
+    """Read a font's embedded family name, tolerating invalid test fixtures."""
+    try:
+        font = ImageFont.truetype(str(path), size=16)
+        name = font.getname()[0]
+    except Exception:
+        return None
+    return _family_key(str(name)) if name else None
+
+
 def discover_font_files(extra_roots: tuple[Path, ...] = ()) -> dict[str, tuple[Path, ...]]:
     """Discover fonts under explicitly supplied or platform font directories only."""
     found: dict[str, list[Path]] = {}
@@ -91,7 +103,11 @@ def discover_font_files(extra_roots: tuple[Path, ...] = ()) -> dict[str, tuple[P
             continue
         for path in sorted(root.rglob("*"), key=lambda item: item.as_posix().casefold()):
             if path.is_file() and path.suffix.casefold() in _FONT_SUFFIXES:
-                found.setdefault(_family_key(path.name), []).append(path)
+                stem_key = _family_key(path.name)
+                found.setdefault(stem_key, []).append(path)
+                embedded_key = _embedded_family_key(path)
+                if embedded_key and embedded_key != stem_key:
+                    found.setdefault(embedded_key, []).append(path)
     return {key: tuple(paths) for key, paths in sorted(found.items())}
 
 

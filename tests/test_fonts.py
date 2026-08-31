@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import Mock, patch
 
 from brandloom.scripts.brandloom_core.fonts import (
     FontNotFoundError,
@@ -69,6 +70,19 @@ class FontResolutionTests(unittest.TestCase):
             (unlisted / "Hidden Font.ttf").write_bytes(b"fake-font")
             discovered = discover_font_files((listed,))
             self.assertNotIn("hidden font", discovered)
+
+    def test_discovery_matches_embedded_family_name_when_filename_is_obscure(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            font_file = root / "msyh.ttc"
+            font_file.write_bytes(b"fake-font")
+            fake_font = Mock()
+            fake_font.getname.return_value = ("Microsoft YaHei", "Regular")
+            with patch("brandloom.scripts.brandloom_core.fonts._font_roots", return_value=(root,)), patch(
+                "PIL.ImageFont.truetype", return_value=fake_font
+            ):
+                discovered = discover_font_files((root,))
+            self.assertEqual(discovered["microsoft yahei"], (font_file,))
 
 
 if __name__ == "__main__":
