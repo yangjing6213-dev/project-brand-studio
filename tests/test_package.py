@@ -73,6 +73,82 @@ class PackageContractTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("provenance", result.stderr.lower())
 
+    def test_builder_rejects_supported_image_outside_assets_without_provenance(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            source = Path(temporary_directory) / "brandloom"
+            references = source / "references"
+            references.mkdir(parents=True)
+            (source / "SKILL.md").write_text("---\nname: brandloom\n---\n", encoding="utf-8")
+            (references / "untracked-preview.webp").write_bytes(b"image outside assets")
+            result = subprocess.run(
+                [sys.executable, str(BUILD_SCRIPT), "--source", str(source), "--output", str(Path(temporary_directory) / "package.zip")],
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+            )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("provenance", result.stderr.lower())
+
+    def test_builder_rejects_incomplete_or_forged_provenance_hash(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            source = Path(temporary_directory) / "brandloom"
+            asset = source / "assets" / "defaults" / "sample"
+            asset.mkdir(parents=True)
+            (source / "SKILL.md").write_text("---\nname: brandloom\n---\n", encoding="utf-8")
+            (asset / "reference.bmp").write_bytes(b"actual image bytes")
+            (asset / "provenance.json").write_text(
+                json.dumps(
+                    {
+                        "source_reference": "synthetic test asset",
+                        "sha256": "0" * 64,
+                        "confirmed_at": "2026-09-01T00:00:00+00:00",
+                        "confirmation_source": "test",
+                        "authorization_status": "user_authorized",
+                        "distribution_scope": "public_skill_package",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [sys.executable, str(BUILD_SCRIPT), "--source", str(source), "--output", str(Path(temporary_directory) / "package.zip")],
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+            )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("sha-256", result.stderr.lower())
+
+    def test_builder_accepts_cropped_asset_reference_hash(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            source = Path(temporary_directory) / "brandloom"
+            asset = source / "assets" / "defaults" / "sample"
+            asset.mkdir(parents=True)
+            (source / "SKILL.md").write_text("---\nname: brandloom\n---\n", encoding="utf-8")
+            payload = b"cropped image bytes"
+            image = asset / "reference.tiff"
+            image.write_bytes(payload)
+            (asset / "provenance.json").write_text(
+                json.dumps(
+                    {
+                        "source_reference": "synthetic source image",
+                        "sha256": "1" * 64,
+                        "reference_sha256": hashlib.sha256(payload).hexdigest(),
+                        "confirmed_at": "2026-09-01T00:00:00+00:00",
+                        "confirmation_source": "test",
+                        "authorization_status": "user_authorized",
+                        "distribution_scope": "public_skill_package",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [sys.executable, str(BUILD_SCRIPT), "--source", str(source), "--output", str(Path(temporary_directory) / "package.zip")],
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+            )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_builder_rejects_denylisted_asset_hashes(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             source = Path(temporary_directory) / "brandloom"
@@ -82,7 +158,17 @@ class PackageContractTests(unittest.TestCase):
             payload = b"synthetic forbidden reference"
             (asset / "reference.png").write_bytes(payload)
             (asset / "provenance.json").write_text(
-                json.dumps({"authorization_status": "user_authorized"}), encoding="utf-8"
+                json.dumps(
+                    {
+                        "source_reference": "synthetic test asset",
+                        "sha256": hashlib.sha256(payload).hexdigest(),
+                        "confirmed_at": "2026-09-01T00:00:00+00:00",
+                        "confirmation_source": "test",
+                        "authorization_status": "user_authorized",
+                        "distribution_scope": "public_skill_package",
+                    }
+                ),
+                encoding="utf-8",
             )
             denylist = Path(temporary_directory) / "denylist.json"
             denylist.write_text(json.dumps([hashlib.sha256(payload).hexdigest()]), encoding="utf-8")

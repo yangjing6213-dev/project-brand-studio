@@ -8,11 +8,26 @@ import json
 import sys
 import tempfile
 import zipfile
+from datetime import datetime
 from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
+IMAGE_SUFFIXES = {
+    ".avif",
+    ".bmp",
+    ".gif",
+    ".heic",
+    ".heif",
+    ".ico",
+    ".jpeg",
+    ".jpg",
+    ".png",
+    ".svg",
+    ".tif",
+    ".tiff",
+    ".webp",
+}
 EXCLUDED_PARTS = {".brandloom", "staging", "tests", "docs", ".git", "__pycache__"}
 NORMALIZED_DATE_TIME = (2020, 1, 1, 0, 0, 0)
 
@@ -44,18 +59,55 @@ def is_excluded(relative_path: Path) -> bool:
     return any(part in EXCLUDED_PARTS or part.endswith(".pyc") for part in relative_path.parts)
 
 
+def is_sha256(value: object) -> bool:
+    return isinstance(value, str) and len(value) == 64 and all(character in "0123456789abcdef" for character in value.lower())
+
+
+def provenance_path_for(path: Path) -> Path | None:
+    per_directory = path.with_name("provenance.json")
+    per_file = path.with_name(f"{path.stem}.provenance.json")
+    if per_directory.is_file():
+        return per_directory
+    if per_file.is_file():
+        return per_file
+    return None
+
+
 def validate_asset(path: Path, denylist: set[str]) -> None:
-    provenance_path = path.with_name("provenance.json")
-    if not provenance_path.is_file():
-        raise PackageError(f"Asset lacks adjacent provenance.json: {path}")
+    provenance_path = provenance_path_for(path)
+    if provenance_path is None:
+        raise PackageError(f"Image lacks adjacent provenance.json: {path}")
     try:
         provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as error:
         raise PackageError(f"Asset provenance is invalid JSON: {provenance_path}") from error
-    if provenance.get("authorization_status") != "user_authorized":
-        raise PackageError(f"Asset is not authorized for distribution: {path}")
-    if sha256(path).lower() in denylist:
-        raise PackageError(f"Asset matches denylist: {path}")
+    required_text_fields = (
+        "source_reference",
+        "sha256",
+        "confirmed_at",
+        "confirmation_source",
+        "authorization_status",
+        "distribution_scope",
+    )
+    missing = [field for field in required_text_fields if not isinstance(provenance.get(field), str) or not provenance[field].strip()]
+    if missing:
+        raise PackageError(f"Image provenance lacks required fields {missing}: {provenance_path}")
+    if provenance["authorization_status"] != "user_authorized":
+        raise PackageError(f"Image is not authorized for distribution: {path}")
+    if not is_sha256(provenance["sha256"]):
+        raise PackageError(f"Image provenance has an invalid SHA-256: {provenance_path}")
+    try:
+        datetime.fromisoformat(provenance["confirmed_at"].replace("Z", "+00:00"))
+    except ValueError as error:
+        raise PackageError(f"Image provenance has an invalid ISO-8601 confirmation time: {provenance_path}") from error
+    expected_hash = provenance.get("reference_sha256", provenance["sha256"])
+    if not is_sha256(expected_hash):
+        raise PackageError(f"Image provenance has an invalid reference SHA-256: {provenance_path}")
+    actual_hash = sha256(path).lower()
+    if actual_hash != expected_hash.lower():
+        raise PackageError(f"Image SHA-256 does not match provenance: {path}")
+    if actual_hash in denylist:
+        raise PackageError(f"Image matches denylist: {path}")
 
 
 def package_files(source: Path, denylist: set[str]) -> list[Path]:
@@ -68,8 +120,7 @@ def package_files(source: Path, denylist: set[str]) -> list[Path]:
     if not files or not (source / "SKILL.md").is_file():
         raise PackageError(f"Skill source must contain SKILL.md: {source}")
     for path in files:
-        relative_path = path.relative_to(source)
-        if relative_path.parts[0] == "assets" and path.suffix.lower() in IMAGE_SUFFIXES:
+        if path.suffix.lower() in IMAGE_SUFFIXES:
             validate_asset(path, denylist)
     return files
 
