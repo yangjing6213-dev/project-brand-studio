@@ -1,0 +1,8 @@
+{
+  "source_reference": "project-authored deterministic Pillow example",
+  "sha256": "1f5ac181c6cb682c524f91370a2afe898e989caa724c59248cecf285ab12d05e",
+  "confirmed_at": "2026-09-01T00:00:00+00:00",
+  "confirmation_source": "project_authored",
+  "authorization_status": "user_authorized",
+  "distribution_scope": "documentation_examples"
+}
