@@ -31,7 +31,7 @@ Build the installable `brandloom` Codex Skill in repository `project-brand-studi
 | T7 | Resolve fonts with strict fallback | font presets, fonts.py, tests | Alias resolution and no silent fallback | focused + full unittest, diff | T2,T4 | verified |
 | T8 | Render deterministic templates with Pillow | templates, layout, renderer, tests | Dimensions, text fit, aspect integrity, versioning | focused + full unittest, diff | T2,T5,T7 | verified |
 | T9 | Build generation prompts and backend boundary | prompt_builder, backend ref, SKILL.md, tests | Safe prompt and returned-path validation | focused + full unittest, diff | T3,T4,T6,T8 | verified |
-| T10 | Implement CLI, manifests, local pipeline | manifests, CLI, tests | init/assets/state/compose/validate/deliver E2E | focused + full unittest, diff | T2,T3,T5,T8,T9 | pending |
+| T10 | Implement CLI, manifests, local pipeline | manifests, CLI, tests | init/assets/state/compose/validate/deliver E2E | focused + full unittest, diff | T2,T3,T5,T8,T9 | verified |
 | T11 | Add localization/editing/internal QA | validation, refs, SKILL.md, tests | Reuse hashes/base, QA failure gates, no overwrite | focused + full unittest, diff | T8,T10 | pending |
 | T12 | Document, package, examples, final CI | READMEs, legal docs, examples, builder, tests, CI | Deterministic ZIP and exclusions; final acceptance | full unittest, build, ZIP inspect, manual acceptance, final review | T1–T11 | pending |
 
@@ -45,9 +45,10 @@ Build the installable `brandloom` Codex Skill in repository `project-brand-studi
 - T7 strict font resolution: commits `ba41efc` and `fccb2b9`; fresh focused 5/5 and full 36/36, independent review plus scoped fix re-review approved (embedded family metadata gap addressed; one deferred Minor test-coverage observation).
 - T8 deterministic renderer: commit `ca7f21c`; fresh focused 6/6 and full 42/42, independent review approved (one deferred Minor test-coverage observation).
 - T9 generation boundary: commits `7a623fd` and `94085af`; fresh focused 8/8 and full 50/50, independent review plus scoped fix re-review approved (canonical IP selection and strict expected dimensions addressed).
+- T10 local pipeline: commits `8016b7d`, `6dbf7f3`, and `3594142`; fresh focused 6/6 and full 56/56, independent review plus two scoped fix re-reviews approved (prompt/path boundary, workspace validation, and raw returned-path preservation addressed).
 
 ## Current Work
-- Task 10 is next: CLI, manifests, and local end-to-end pipeline.
+- Task 11 is next: localization/editing and internal QA/delivery gates.
 
 ## Remaining Work
 - Complete Tasks 7–12, final review, package, and finishing-branch menu.
