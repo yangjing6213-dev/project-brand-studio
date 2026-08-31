@@ -29,7 +29,7 @@ Build the installable `brandloom` Codex Skill in repository `project-brand-studi
 | T5 | Implement rights-aware local asset library | paths, asset_library, tests | Hash dedupe, defaults, versioning, rights checks | focused + full unittest, diff | T2 | verified |
 | T6 | Add authorized built-in logo/IP profiles | defaults, IP refs, tests | Three profiles, seven combinations, provenance and image checks | focused + full unittest + manual image check | T5 + explicit user A | verified |
 | T7 | Resolve fonts with strict fallback | font presets, fonts.py, tests | Alias resolution and no silent fallback | focused + full unittest, diff | T2,T4 | verified |
-| T8 | Render deterministic templates with Pillow | templates, layout, renderer, tests | Dimensions, text fit, aspect integrity, versioning | focused + full unittest, diff | T2,T5,T7 | pending |
+| T8 | Render deterministic templates with Pillow | templates, layout, renderer, tests | Dimensions, text fit, aspect integrity, versioning | focused + full unittest, diff | T2,T5,T7 | verified |
 | T9 | Build generation prompts and backend boundary | prompt_builder, backend ref, SKILL.md, tests | Safe prompt and returned-path validation | focused + full unittest, diff | T3,T4,T6,T8 | pending |
 | T10 | Implement CLI, manifests, local pipeline | manifests, CLI, tests | init/assets/state/compose/validate/deliver E2E | focused + full unittest, diff | T2,T3,T5,T8,T9 | pending |
 | T11 | Add localization/editing/internal QA | validation, refs, SKILL.md, tests | Reuse hashes/base, QA failure gates, no overwrite | focused + full unittest, diff | T8,T10 | pending |
@@ -43,9 +43,10 @@ Build the installable `brandloom` Codex Skill in repository `project-brand-studi
 - T5 asset library: commits `ad4ea8b` and `2091875`; fresh focused 7/7 and full 27/27, independent review plus scoped fix re-review approved.
 - T6 built-in profiles: commit `372f18f`; fresh focused 4/4 and full 31/31, actual source hashes/byte copies/crop pixels verified, four-reference visual check passed, independent review approved (one deferred Minor test-coverage observation).
 - T7 strict font resolution: commits `ba41efc` and `fccb2b9`; fresh focused 5/5 and full 36/36, independent review plus scoped fix re-review approved (embedded family metadata gap addressed; one deferred Minor test-coverage observation).
+- T8 deterministic renderer: commit `ca7f21c`; fresh focused 6/6 and full 42/42, independent review approved (one deferred Minor test-coverage observation).
 
 ## Current Work
-- Task 8 is next: deterministic Pillow templates and rendering.
+- Task 9 is next: safe prompt construction and image-backend boundary.
 
 ## Remaining Work
 - Complete Tasks 7–12, final review, package, and finishing-branch menu.
