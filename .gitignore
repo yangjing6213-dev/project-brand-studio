@@ -1,0 +1,9 @@
+.worktrees/
+.superpowers/
+BrandLoom_Planning_Package/
+staging/brand-assets/
+.brandloom/
+dist/
+build/
+__pycache__/
+*.py[cod]
