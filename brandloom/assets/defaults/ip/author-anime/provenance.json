@@ -1,0 +1,8 @@
+{
+  "source_reference": "user-provided project asset",
+  "sha256": "3e995cf6a04b7a5f4ed5355011dd32bfc4ef08ce354cbbfbc98ab16dafd2c601",
+  "confirmed_at": "2026-08-31T14:32:09.277615+00:00",
+  "confirmation_source": "user_confirmed",
+  "authorization_status": "user_authorized",
+  "distribution_scope": "public_skill_package"
+}

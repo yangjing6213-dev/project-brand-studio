@@ -1,0 +1,10 @@
+{
+  "source_reference": "user-provided project asset",
+  "sha256": "1476867911e9ab75f0234c8ab0b094bf9eeed3e9370f27cb79e7c7fd67feb174",
+  "confirmed_at": "2026-08-31T14:32:09.277615+00:00",
+  "confirmation_source": "user_confirmed",
+  "authorization_status": "user_authorized",
+  "distribution_scope": "public_skill_package",
+  "crop": {"source": "tuotuo-xingbi.png", "box": [650, 680, 1010, 1100]},
+  "reference_sha256": "4ce80170dd28547f0b761ab908b2c3d59784cd938b2b2f9e14fb459e39ddfe3c"
+}
