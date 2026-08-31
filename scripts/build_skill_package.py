@@ -20,7 +20,9 @@ IMAGE_SUFFIXES = {
     ".heic",
     ".heif",
     ".ico",
+    ".jfif",
     ".jpeg",
+    ".jpe",
     ".jpg",
     ".png",
     ".svg",
@@ -94,10 +96,16 @@ def validate_asset(path: Path, denylist: set[str]) -> None:
         raise PackageError(f"Image provenance lacks required fields {missing}: {provenance_path}")
     if provenance["authorization_status"] != "user_authorized":
         raise PackageError(f"Image is not authorized for distribution: {path}")
+    if provenance["distribution_scope"] != "public_skill_package":
+        raise PackageError(f"Image provenance has a non-public distribution scope: {provenance_path}")
     if not is_sha256(provenance["sha256"]):
         raise PackageError(f"Image provenance has an invalid SHA-256: {provenance_path}")
     try:
-        datetime.fromisoformat(provenance["confirmed_at"].replace("Z", "+00:00"))
+        if "T" not in provenance["confirmed_at"]:
+            raise ValueError("timestamp lacks T separator")
+        confirmed_at = datetime.fromisoformat(provenance["confirmed_at"].replace("Z", "+00:00"))
+        if confirmed_at.tzinfo is None:
+            raise ValueError("timestamp lacks timezone")
     except ValueError as error:
         raise PackageError(f"Image provenance has an invalid ISO-8601 confirmation time: {provenance_path}") from error
     expected_hash = provenance.get("reference_sha256", provenance["sha256"])
@@ -106,7 +114,10 @@ def validate_asset(path: Path, denylist: set[str]) -> None:
     actual_hash = sha256(path).lower()
     if actual_hash != expected_hash.lower():
         raise PackageError(f"Image SHA-256 does not match provenance: {path}")
-    if actual_hash in denylist:
+    relevant_hashes = {actual_hash, provenance["sha256"].lower()}
+    if "reference_sha256" in provenance:
+        relevant_hashes.add(provenance["reference_sha256"].lower())
+    if relevant_hashes.intersection(denylist):
         raise PackageError(f"Image matches denylist: {path}")
 
 
