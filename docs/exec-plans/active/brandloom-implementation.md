@@ -33,7 +33,7 @@ Build the installable `brandloom` Codex Skill in repository `project-brand-studi
 | T9 | Build generation prompts and backend boundary | prompt_builder, backend ref, SKILL.md, tests | Safe prompt and returned-path validation | focused + full unittest, diff | T3,T4,T6,T8 | verified |
 | T10 | Implement CLI, manifests, local pipeline | manifests, CLI, tests | init/assets/state/compose/validate/deliver E2E | focused + full unittest, diff | T2,T3,T5,T8,T9 | verified |
 | T11 | Add localization/editing/internal QA | validation, refs, SKILL.md, tests | Reuse hashes/base, QA failure gates, no overwrite | focused + full unittest, diff | T8,T10 | verified |
-| T12 | Document, package, examples, final CI | READMEs, legal docs, examples, builder, tests, CI | Deterministic ZIP and exclusions; final acceptance | full unittest, build, ZIP inspect, manual acceptance, final review | T1–T11 | pending |
+| T12 | Document, package, examples, final CI | READMEs, legal docs, examples, builder, tests, CI | Deterministic ZIP and exclusions; final acceptance | full unittest, build, ZIP inspect, manual acceptance, final review | T1–T11 | verified |
 
 ## Completed + Verified
 - T1 scaffold: commit `a46d477`; focused and full unittest 3/3, diff check clean, independent review approved.
@@ -47,9 +47,10 @@ Build the installable `brandloom` Codex Skill in repository `project-brand-studi
 - T9 generation boundary: commits `7a623fd` and `94085af`; fresh focused 8/8 and full 50/50, independent review plus scoped fix re-review approved (canonical IP selection and strict expected dimensions addressed).
 - T10 local pipeline: commits `8016b7d`, `6dbf7f3`, and `3594142`; fresh focused 6/6 and full 56/56, independent review plus two scoped fix re-reviews approved (prompt/path boundary, workspace validation, and raw returned-path preservation addressed).
 - T11 localization and QA: final amended commit `b2f5cf6`; fresh focused localization+pipeline 16/16 and full 66/66, independent review plus two scoped fix re-reviews approved (canonical copy, brief boundary, Social Preview, and shared delivery QA addressed).
+- T12 release package: commits `0f9077f`, `9247d99`, `b3c025c`, `05afb8d`; fresh focused 13/13 and full 79/79, deterministic ZIP SHA-256 `b775b826...f56f`, independent review plus three scoped fix re-reviews approved.
 
 ## Current Work
-- Task 12 is next: public documentation, examples, deterministic package builder, and final CI/package contract.
+- Tasks 1–12 are implemented and individually reviewed. Final workspace acceptance and full-branch review remain.
 
 ## Remaining Work
 - Complete Tasks 7–12, final review, package, and finishing-branch menu.
