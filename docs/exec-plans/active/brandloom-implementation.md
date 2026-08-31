@@ -27,7 +27,7 @@ Build the installable `brandloom` Codex Skill in repository `project-brand-studi
 | T3 | Enforce QA transitions/invalidation/gate | state_machine, tests | Explicit transitions and generation gate | focused + full unittest, diff | T2 | verified |
 | T4 | Add complete QA references and routing | SKILL.md, references, contract tests | All states/options/rules and routes present | focused + full unittest, diff | T1,T3 | verified |
 | T5 | Implement rights-aware local asset library | paths, asset_library, tests | Hash dedupe, defaults, versioning, rights checks | focused + full unittest, diff | T2 | verified |
-| T6 | Add authorized built-in logo/IP profiles | defaults, IP refs, tests | Three profiles, seven combinations, provenance and image checks | focused + full unittest + manual image check | T5 + explicit user A | blocked |
+| T6 | Add authorized built-in logo/IP profiles | defaults, IP refs, tests | Three profiles, seven combinations, provenance and image checks | focused + full unittest + manual image check | T5 + explicit user A | verified |
 | T7 | Resolve fonts with strict fallback | font presets, fonts.py, tests | Alias resolution and no silent fallback | focused + full unittest, diff | T2,T4 | pending |
 | T8 | Render deterministic templates with Pillow | templates, layout, renderer, tests | Dimensions, text fit, aspect integrity, versioning | focused + full unittest, diff | T2,T5,T7 | pending |
 | T9 | Build generation prompts and backend boundary | prompt_builder, backend ref, SKILL.md, tests | Safe prompt and returned-path validation | focused + full unittest, diff | T3,T4,T6,T8 | pending |
@@ -41,12 +41,13 @@ Build the installable `brandloom` Codex Skill in repository `project-brand-studi
 - T3 QA state machine: commits `45027d9` and `e76c88b`; fresh focused 7/7 and full 17/17, independent review plus scoped fix re-review approved (one deferred coverage minor).
 - T4 QA references/routing: commits `87f97fe`, `169d308`, `16e423e`, `569ed2f`; fresh focused 6/6 and full 20/20, two scoped fix re-reviews approved (one deferred static-test minor).
 - T5 asset library: commits `ad4ea8b` and `2091875`; fresh focused 7/7 and full 27/27, independent review plus scoped fix re-review approved.
+- T6 built-in profiles: commit `372f18f`; fresh focused 4/4 and full 31/31, actual source hashes/byte copies/crop pixels verified, four-reference visual check passed, independent review approved (one deferred Minor test-coverage observation).
 
 ## Current Work
-- Task 6 has authorization A, but remains blocked because the three exact authorized source files are absent from both the linked worktree and repository root staging paths. No staging files have been imported or copied into `brandloom/assets/defaults/`.
+- Task 7 is next: strict font resolution and fallback behavior.
 
 ## Remaining Work
-- Supply the three exact authorized source files at the required staging paths, then complete Tasks 6–12, final review, package, and finishing-branch menu.
+- Complete Tasks 7–12, final review, package, and finishing-branch menu.
 
 ## Failures
 - Baseline discovery cannot start because `tests/` does not exist in the planning baseline; this is expected for the empty scaffold and is retained as evidence, not treated as a product test failure.
@@ -64,7 +65,7 @@ Build the installable `brandloom` Codex Skill in repository `project-brand-studi
 - Use the bundled Python executable explicitly because the `py` launcher is absent.
 
 ## Open Risks
-- Task 6 has explicit choice A, but cannot proceed until the exact source files are supplied at the required staging paths; no provenance or binary copying will occur without those files.
+- Task 6 provenance uses the recorded actual source digests and confirmation timestamp; the three ignored staging sources remain unmodified.
 - Host image-generation availability is not yet established; if absent, visual acceptance must be reported PARTIAL.
 
 ## Final Acceptance
