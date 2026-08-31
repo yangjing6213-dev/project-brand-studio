@@ -1,0 +1,10 @@
+{
+  "schema_version": "1.0",
+  "canvas": {"width": 2048, "height": 2048, "safe_margin": 123},
+  "slots": {
+    "company_logo": {"x": 140, "y": 120, "w": 520, "h": 150, "fit": "contain"},
+    "title": {"x": 140, "y": 390, "w": 900, "h": 560, "min_font_size": 72, "max_font_size": 176},
+    "subtitle": {"x": 140, "y": 980, "w": 900, "h": 180, "min_font_size": 32, "max_font_size": 64},
+    "project_mark": {"x": 140, "y": 1320, "w": 480, "h": 480, "fit": "contain"}
+  }
+}
