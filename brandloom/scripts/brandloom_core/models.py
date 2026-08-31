@@ -47,7 +47,7 @@ class AssetCategory(StrEnum):
     COMPANY_LOGO = "company-logo"
     IP_CHARACTER = "ip-character"
     STYLE_REFERENCE = "style-reference"
-    PROJECT_EXAMPLE = "project-example"
+    UI_SCREENSHOT = "ui-screenshot"
 
 
 class AssetScope(StrEnum):

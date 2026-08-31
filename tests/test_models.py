@@ -6,6 +6,7 @@ import unittest
 from brandloom.scripts.brandloom_core.json_io import read_json_dataclass, write_json_dataclass
 from brandloom.scripts.brandloom_core.models import (
     AssetCategory,
+    AssetRecord,
     AssetScope,
     BrandBrief,
     QAState,
@@ -68,8 +69,21 @@ class ModelTests(unittest.TestCase):
     def test_enum_values_match_public_schema(self) -> None:
         self.assertEqual(TaskMode.PLAN_ONLY.value, "plan-only")
         self.assertEqual(AssetCategory.COMPANY_LOGO.value, "company-logo")
+        self.assertEqual(AssetCategory.UI_SCREENSHOT.value, "ui-screenshot")
         self.assertEqual(AssetScope.SKILL_DEFAULTS.value, "skill-defaults")
         self.assertEqual(RightsStatus.USER_AUTHORIZED.value, "user_authorized")
+
+    def test_ui_screenshot_category_round_trip(self) -> None:
+        record = AssetRecord(
+            "screen", AssetCategory.UI_SCREENSHOT, AssetScope.PROJECT, "screen.png", "hash",
+            10, 20, RightsStatus.USER_AUTHORIZED, True, None,
+            (), (), "now",
+        )
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "asset.json"
+            write_json_dataclass(path, record)
+            loaded = read_json_dataclass(path, AssetRecord)
+        self.assertIs(loaded.category, AssetCategory.UI_SCREENSHOT)
 
 
 if __name__ == "__main__":
