@@ -1,0 +1,6 @@
+interface:
+  display_name: "BrandLoom"
+  short_description: "通过确认式 QA 生成一致的项目 LOGO 主视觉与封面"
+  default_prompt: "Use $brandloom to 先分析当前项目、对话、附件与链接，再逐项确认文案、风格、字体、LOGO、IP、shot list 和输出规格。"
+policy:
+  allow_implicit_invocation: true
