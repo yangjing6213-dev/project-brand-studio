@@ -149,19 +149,19 @@ class PackageContractTests(unittest.TestCase):
             )
         self.assertEqual(result.returncode, 0, result.stderr)
 
-    def test_builder_requires_public_scope_and_timezone_timestamp(self) -> None:
+    def test_builder_rejects_non_public_distribution_scope(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             source = Path(temporary_directory) / "brandloom"
             asset = source / "assets" / "defaults" / "sample"
             asset.mkdir(parents=True)
             (source / "SKILL.md").write_text("---\nname: brandloom\n---\n", encoding="utf-8")
-            payload = b"scope and time test"
+            payload = b"scope test"
             image = asset / "reference.png"
             image.write_bytes(payload)
             provenance = {
                 "source_reference": "synthetic test asset",
                 "sha256": hashlib.sha256(payload).hexdigest(),
-                "confirmed_at": "2026-09-01",
+                "confirmed_at": "2026-09-01T00:00:00+00:00",
                 "confirmation_source": "test",
                 "authorization_status": "user_authorized",
                 "distribution_scope": "local_only",
@@ -174,7 +174,69 @@ class PackageContractTests(unittest.TestCase):
                 text=True,
             )
         self.assertNotEqual(result.returncode, 0)
-        self.assertTrue("scope" in result.stderr.lower() or "iso-8601" in result.stderr.lower())
+        self.assertIn("scope", result.stderr.lower())
+
+    def test_builder_rejects_date_only_confirmation_timestamp(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            source = Path(temporary_directory) / "brandloom"
+            asset = source / "assets" / "defaults" / "sample"
+            asset.mkdir(parents=True)
+            (source / "SKILL.md").write_text("---\nname: brandloom\n---\n", encoding="utf-8")
+            payload = b"date-only timestamp test"
+            image = asset / "reference.png"
+            image.write_bytes(payload)
+            (asset / "provenance.json").write_text(
+                json.dumps(
+                    {
+                        "source_reference": "synthetic test asset",
+                        "sha256": hashlib.sha256(payload).hexdigest(),
+                        "confirmed_at": "2026-09-01",
+                        "confirmation_source": "test",
+                        "authorization_status": "user_authorized",
+                        "distribution_scope": "public_skill_package",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [sys.executable, str(BUILD_SCRIPT), "--source", str(source), "--output", str(Path(temporary_directory) / "package.zip")],
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+            )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("iso-8601", result.stderr.lower())
+
+    def test_builder_rejects_timezone_naive_confirmation_timestamp(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            source = Path(temporary_directory) / "brandloom"
+            asset = source / "assets" / "defaults" / "sample"
+            asset.mkdir(parents=True)
+            (source / "SKILL.md").write_text("---\nname: brandloom\n---\n", encoding="utf-8")
+            payload = b"naive timestamp test"
+            image = asset / "reference.png"
+            image.write_bytes(payload)
+            (asset / "provenance.json").write_text(
+                json.dumps(
+                    {
+                        "source_reference": "synthetic test asset",
+                        "sha256": hashlib.sha256(payload).hexdigest(),
+                        "confirmed_at": "2026-09-01T00:00:00",
+                        "confirmation_source": "test",
+                        "authorization_status": "user_authorized",
+                        "distribution_scope": "public_skill_package",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [sys.executable, str(BUILD_SCRIPT), "--source", str(source), "--output", str(Path(temporary_directory) / "package.zip")],
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+            )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("iso-8601", result.stderr.lower())
 
     def test_builder_rejects_cropped_asset_when_source_hash_is_denylisted(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
