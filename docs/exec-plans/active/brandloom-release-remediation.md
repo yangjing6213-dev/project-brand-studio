@@ -45,7 +45,7 @@ Close the final BrandLoom Critical and Important release blockers under the user
 |---|---|---|---|---|---|---|
 | T1 | Enforce affirmative, state-bound QA confirmations | `state_machine.py`, `models.py`, CLI, state/pipeline tests, workflow docs | `"no"` and raw strings fail; unknown/out-of-order keys fail; legal confirmed flow reaches ready; invalidation still works | focused state/pipeline RED→GREEN, full unittest, diff/status, review | none | verified |
 | T2 | Close manifest, accepted-logo, project-mark, and version gaps | validation/manifests/prompt/CLI/models, localization/pipeline tests | incomplete manifests fail; tampered accepted logo blocks cover; unresolved requested mark blocks; v100 wins; collision test isolated | focused localization/pipeline RED→GREEN, full unittest, diff/status, review | T1 | verified |
-| T3 | Integrate the four new exact assets with truthful provenance | default asset profiles, prompt references, package/profile tests, NOTICE | only after explicit authorization; all four exact hashes represented without redraw/overwrite; appearance vs geometry roles explicit; package builder accepts truthful provenance | image/hash/provenance tests, visual inspection, full unittest, package audit, review | T2 + explicit new-file authorization | blocked |
+| T3 | Integrate the four new exact assets with truthful provenance | default asset profiles, prompt references, package/profile tests, NOTICE | only after explicit authorization; all four exact hashes represented without redraw/overwrite; appearance vs geometry roles explicit; package builder accepts truthful provenance | image/hash/provenance tests, visual inspection, full unittest, package audit, review | T2 + explicit new-file authorization | verified |
 | T4 | Re-run acceptance, package, and final review | tests, ignored workspaces, active plan/ledger, dist | negative exploit fails, two workspaces satisfy code-level flows, package deterministic, final reviewer finds no Critical/Important | full verification, double build, ZIP audit, manual views, final review | T1–T3 | pending |
 
 ### Task 1: Enforce affirmative, state-bound QA confirmations
@@ -88,10 +88,10 @@ Close the final BrandLoom Critical and Important release blockers under the user
 - Task 1: strict state-bound affirmative confirmations implemented in `3bd2873`; review fix `120a552` completed the full custom flow test. Focused state 17/17, pipeline 16/16, full 114/114, compileall and diff/status checks passed; independent re-review marked the Important finding ADDRESSED with no new Critical/Important breakage.
 
 ## Current Work
-- Task 3 authorization gate preparation; code tasks 1–2 complete.
+- Tasks 1–3 are implemented, tested, committed, and independently reviewed. Task 4 offline final acceptance and package audit completed; independent whole-branch review remains required.
 
 ## Remaining Work
-- Tasks 3–4 above.
+- Independent whole-branch review and final adjudication; host visual generation remains unavailable by constraint.
 
 ## Failures
 - Prior branch verdict is `FAIL`: one Critical and three Important release blockers remain at starting HEAD.
@@ -101,6 +101,7 @@ Close the final BrandLoom Critical and Important release blockers under the user
 - Task 1 -> commits `3bd2873f79871e0933733425af8d6f9290650f16`, `120a552f3389359242240b2dcd44284028d27637`; full unittest 114/114 PASS; independent task review completed after fix round 1.
 - Task 2 -> implementation/fix commits `b238de5`, `b4b9831`, `773d020`, `d69fbd9`, `a7968b9`, `a353d37`, `c4484b6` (plus ignored-report cleanup `a95512b`); focused 16/16, related 54/54, full 131/131, compileall and diff/status passed; five-round independent review closed all Critical/Important findings.
 - Incoming hashes: pair front `0754c7c51b225e57949bd77cb80eb32195ffc6d81151fe495d9ed1fde1ebbc21`; Xingbi five views `6c6fbc39b45ec8b7fd7dc6883dbb13464772fad5c5c57659ac7158de235850d9`; Tuotuo five views `cace50cd0e54c6180ceda2cb2797dc2fd61746fefc09a9bf64b19e008f017e46`; white ENHE logo `9e6b890cc043029fcf629684cf38c944376c879737c559772854cbe807dd972a`.
+- Task 4 evidence: all-`"no"` exploit rejected (`GenerationGateError`); full unittest `137/137 PASS`; compileall and `git diff --check` PASS; deterministic double ZIP SHA-256 `6ff681d53bcc43b62e35b22a908bd5b24317cd74426e7f2de695f2745d72c405`, 59 entries, 8-image provenance/decode audit PASS; Acceptance A workspace `.brandloom/task4-accept-a-ip1xzgkd` code-level PASS through `DELIVERED`; Acceptance B workspace `.brandloom/task4-accept-b-baf9vu25` localization code-level PASS with English v01 preserved and Chinese v02 paths; host image generation not invoked (visual acceptance PARTIAL). See ignored `.superpowers/sdd/brandloom-release-remediation/task-4-report.md`.
 
 ## Important Decisions
 - Do not infer public rights from file placement.
@@ -108,12 +109,11 @@ Close the final BrandLoom Critical and Important release blockers under the user
 - Prefer failing closed over legacy compatibility for release validation.
 
 ## Open Risks
-- Explicit public authorization for the four new exact hashes is absent.
-- The IP pair front is a 2D transparent illustration while both five-view sheets are 3D turnarounds; reference priority must prevent contradictory appearance guidance.
-- The new white ENHE file has no ICC profile and appears to contain edge/noise artifacts on transparency; it must be assessed before replacing the current clean reference.
+- The IP pair front is a 2D transparent illustration while both five-view sheets are 3D turnarounds; the prompt/reference roles intentionally keep them from becoming contradictory appearance guidance.
+- The new white ENHE file has no ICC profile and retains its exact transparent edge/texture treatment; it is opt-in and still requires composition-level contrast review rather than automatic fallback use.
 
 ## Final Acceptance
 - Status: PARTIAL
-- Requirements verified: isolated worktree, runtime, clean baseline, incoming-file existence/hash/decode.
-- Not verified: remediation implementation, new asset authorization/import, package, final review.
-- Remaining risks: listed above.
+- Requirements verified: strict gate rejection, full automated checks, deterministic package and ZIP audit, both offline code-level acceptance flows, and exact authorized asset provenance.
+- Not verified: host visual generation and independent whole-branch final review.
+- Remaining risks: white ENHE contrast and visual composition require host/manual review; visual acceptance remains PARTIAL.
