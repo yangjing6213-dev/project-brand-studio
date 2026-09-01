@@ -75,8 +75,8 @@ delivered artifact.
 ## Completed + Verified
 
 - T1 implementation commits: `1973f4d2c65b842ca06ae2e2d686b4e5e8a7fe32` and review-fix commit `5db6c1eb6f17327830830462b24b18dd2253ef07`. The initial independent review was `NEEDS_FIX` (missing-glyph sentinel and CLI error-type findings); both fixes are in the second commit. Fresh Task 3 full unittest evidence is 143 tests passing.
-- T3 executed with bundled Python 3.12.13 and Pillow 12.3.0: full unittest (143), `compileall -q brandloom tests`, and focused package/asset tests (21) all passed. Two direct package builds produced identical SHA-256 `2a0dc4d22252b896ad0c930797e5e64ca1fcdb2da654ff02344401814c906ce7`.
-- ZIP audit found 59 unique entries and no entries from `.brandloom`, `staging`, `tests`, `.superpowers`, `.git`, or `__pycache__`; it also found no supplied composite sheet, cognitive-anchor/generated-image paths, or secret/private-path content.
+- T3 executed with bundled Python 3.12.13 and Pillow 12.3.0: the current source passes the focused final-fix suite (5), full unittest (148), the legacy suite (143), `compileall -q brandloom tests`, and focused package/asset tests. The current source produces a deterministic 60-entry package; the latest two-build SHA-256 is recorded below.
+- Historical pre-final-fix ZIP audit found 59 unique entries and no entries from `.brandloom`, `staging`, `tests`, `.superpowers`, `.git`, or `__pycache__`; it also found no supplied composite sheet, cognitive-anchor/generated-image paths, or secret/private-path content. The current 60-entry audit is recorded below.
 - Final concentrated fix wave: added shared operation→treatment mapping, state-bound `company_logo_treatment` confirmation and invalidation, machine-readable ENHE operation policy, strict non-default manifest treatment/hash/operation/confirmation QA, and Emoji-safe glyph sentinels. Focused RED was observed before implementation; focused/related suite now passes 62 tests and full suite passes 148 tests. T2 exact-size generation remains PARTIAL/blocked.
 
 ## Current Work
@@ -99,8 +99,9 @@ delivered artifact.
 - `-m unittest discover -s tests -q` -> 143 tests, OK (exit 0).
 - `-m compileall -q brandloom tests` -> exit 0.
 - `-m unittest tests.test_package tests.test_task3_assets -v` -> 21 tests, OK (exit 0).
-- `scripts/build_skill_package.py` twice -> matching SHA-256 above (exit 0); ZIP audit -> 59 unique entries, zero excluded/composite/private-path/secret hits.
-- Final fix package builds (`dist/final-fix-a.zip`, `dist/final-fix-b.zip`) -> matching SHA-256 `7aa9ee12666fd86be6266b7a8b7014449886fc9f51efca6845177b3b27f9ae59`; 60 unique entries, zero excluded entries.
+- Historical pre-final-fix `scripts/build_skill_package.py` double build -> matching SHA-256 above (exit 0); current source evidence is the 60-entry double build below.
+- Final concentrated fix commit: `c218a0d8bf909c639724093c0ce51a4e2d5b13bd`. The scoped re-review rebuilt the current source twice: 60 unique entries, byte-identical archives, SHA-256 `3494a2b03ff4641f81b316a26cac0ccbb9ec6e505bbb50a958f9be98f29f3080`, and zero excluded entries.
+- The scoped re-review is recorded in ignored `.superpowers/sdd/brandloom-visual-acceptance/scope-rereview.md`: four final-review findings are PASS; the manifest-field fallback/operation-alias boundary is an adjudicated P2 residual, and no second fix wave is authorized.
 
 ## Important Decisions
 
@@ -121,4 +122,4 @@ delivered artifact.
 - Status: PARTIAL
 - Requirements verified: T1 code-level black-treatment and CJK tests; generated-base inspection; hard-stop on invalid generation dimensions; full test/compile/package and deterministic ZIP evidence.
 - Not verified: final composed black-logo contrast, Chinese glyph readability in a delivered composition, alpha/manifest values for that composition, and reviewed delivery. No final visual acceptance is claimed.
-- Remaining risks: host image generation can return correct aspect ratios with non-contract pixel dimensions; no resize, fallback, or automatic retry is authorized.
+- Remaining risks: host image generation can return correct aspect ratios with non-contract pixel dimensions; no resize, fallback, or automatic retry is authorized. The scoped re-review also records a P2 manifest QA residual: validation can fall back to the brief treatment when the top-level field is absent and accepts the operation alias after canonicalization. This is explicitly adjudicated for a later bounded change, not silently treated as closed.
