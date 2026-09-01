@@ -155,10 +155,31 @@ class Task2ContractTests(unittest.TestCase):
             root = Path(temp); brandloom_cli.main(["init", "--workspace", str(root)])
             logo = self._asset(root, "logo.png", (100, 40), (10, 20, 30, 255))
             brandloom_cli.main(["asset-add", "--workspace", str(root), "--source", str(logo), "--category", "company-logo", "--scope", "project", "--rights", "user_authorized", "--save-confirmed", "--make-default"])
-            self._ready_brief(root, {"project_mark": None}); state_path = root / ".brandloom" / "qa-state.json"
-            payload = json.loads(state_path.read_text()); payload["accepted_logo"] = {"stale": True}; payload["logo_review_candidate"] = {"stale": True}; state_path.write_text(json.dumps(payload), encoding="utf-8")
-            base = self._asset(root, "base.png", (2048, 2048), (255,255,255,255))
+            self._ready_brief(root, {"project_mark": None})
+            state_path = root / ".brandloom" / "qa-state.json"
+            base = self._asset(root, "base.png", (2048, 2048), (255, 255, 255, 255))
+
+            # Obtain both evidence records through the real compose/validate/deliver pipeline.
             self.assertEqual(brandloom_cli.main(["compose", "--workspace", str(root), "--type", "logo-card", "--base", str(base)]), 0)
+            self.assertEqual(brandloom_cli.main(["validate", "--workspace", str(root), "--type", "logo-card"]), 0)
+            candidate = json.loads(state_path.read_text())["logo_review_candidate"]
+            self.assertTrue(validate_accepted_logo_evidence(candidate, expected_slug="demo"))
+            self.assertEqual(brandloom_cli.main(["deliver", "--workspace", str(root), "--type", "logo-card", "--reviewed"]), 0)
+
+            payload = json.loads(state_path.read_text())
+            accepted = payload["accepted_logo"]
+            self.assertTrue(validate_accepted_logo_evidence(accepted, expected_slug="demo"))
+            # Re-introduce the valid candidate alongside the valid accepted evidence and
+            # put the session back at the generation gate for a fresh logo compose.
+            payload["logo_review_candidate"] = candidate
+            payload["state"] = "GENERATION_READY"
+            state_path.write_text(json.dumps(payload), encoding="utf-8")
+            loaded = brandloom_cli._load_session(root)
+            self.assertEqual(loaded.accepted_logo, accepted)
+            self.assertEqual(loaded.logo_review_candidate, candidate)
+
+            new_base = self._asset(root, "base-new.png", (2048, 2048), (245, 245, 245, 255))
+            self.assertEqual(brandloom_cli.main(["compose", "--workspace", str(root), "--type", "logo-card", "--base", str(new_base)]), 0)
             after = json.loads(state_path.read_text())
             self.assertIsNone(after.get("accepted_logo")); self.assertIsNone(after.get("logo_review_candidate"))
 
@@ -227,6 +248,30 @@ class Task2ContractTests(unittest.TestCase):
             brandloom_cli.main(["deliver", "--workspace", str(root), "--type", "logo-card", "--reviewed"])
             accepted = json.loads((root / ".brandloom" / "qa-state.json").read_text())["accepted_logo"]
             Path(accepted["path"]).write_bytes(b"tampered")
+            output_dir = root / ".brandloom" / "outputs" / "demo"
+            before_output_snapshot = {
+                path.relative_to(output_dir).as_posix(): path.read_bytes()
+                for path in output_dir.rglob("*")
+                if path.is_file()
+            }
+            before_manifest_snapshot = {
+                path.name: path.read_bytes()
+                for path in output_dir.glob("generation-manifest-v*.json")
+            }
+            before_cover_pngs = {path.name for path in output_dir.glob("cover-*.png")}
             cover = self._asset(root, "cover.png", (2048, 1024), (240, 240, 240, 255))
             with self.assertRaises(ValueError):
                 brandloom_cli.main(["compose", "--workspace", str(root), "--type", "cover", "--base", str(cover)])
+            after_output_snapshot = {
+                path.relative_to(output_dir).as_posix(): path.read_bytes()
+                for path in output_dir.rglob("*")
+                if path.is_file()
+            }
+            after_manifest_snapshot = {
+                path.name: path.read_bytes()
+                for path in output_dir.glob("generation-manifest-v*.json")
+            }
+            after_cover_pngs = {path.name for path in output_dir.glob("cover-*.png")}
+            self.assertEqual(after_output_snapshot, before_output_snapshot)
+            self.assertEqual(after_manifest_snapshot, before_manifest_snapshot)
+            self.assertEqual(after_cover_pngs, before_cover_pngs)
