@@ -17,5 +17,7 @@
   "transformation": "exact-byte-copy",
   "dimensions": {"width": 2172, "height": 724},
   "mode": "RGBA",
-  "usage_note": "Use only when the user selects the white variant and the composition QA confirms sufficient contrast on a dark background; preserve exact transparency and edge texture."
+  "usage_note": "Use only when the user selects the white variant and the composition QA confirms sufficient contrast on a dark background; preserve exact transparency and edge texture.",
+  "allowed_operations": ["scale", "position"],
+  "forbidden_operations": ["recolor_monochrome", "redraw", "clean", "distort", "change_letterforms", "change_geometry", "use_as_training_reference"]
 }

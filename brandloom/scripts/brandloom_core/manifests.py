@@ -9,6 +9,8 @@ import os
 from pathlib import Path
 from typing import Iterable, Mapping
 
+from .treatments import canonicalize_logo_treatment, operation_for_treatment
+
 
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
@@ -78,6 +80,8 @@ def build_generation_manifest(
     host_request: Mapping[str, object] | None = None,
     logo_treatment: str | None = None,
     logo_source_hash: str | None = None,
+    logo_operation: str | None = None,
+    logo_confirmation: str | None = None,
 ) -> dict[str, object]:
     """Build a JSON-safe manifest without retaining secrets or conversation text."""
     fonts = {
@@ -105,9 +109,16 @@ def build_generation_manifest(
         # Preserve the host tool's returned string verbatim for auditability.
         manifest["image_tool_returned_path"] = str(image_tool_returned_path)
     if logo_treatment is not None:
-        manifest["logo_treatment"] = str(logo_treatment)
+        canonical = canonicalize_logo_treatment(logo_treatment)
+        manifest["logo_treatment"] = canonical
+        if logo_operation is None:
+            manifest["logo_operation"] = operation_for_treatment(canonical)
     if logo_source_hash is not None:
         manifest["logo_source_hash"] = str(logo_source_hash)
+    if logo_operation is not None:
+        manifest["logo_operation"] = str(logo_operation)
+    if logo_confirmation is not None:
+        manifest["logo_confirmation"] = str(logo_confirmation)
     return manifest
 
 

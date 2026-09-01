@@ -4,5 +4,7 @@
   "confirmed_at": "2026-08-31T14:32:09.277615+00:00",
   "confirmation_source": "user_confirmed",
   "authorization_status": "user_authorized",
-  "distribution_scope": "public_skill_package"
+  "distribution_scope": "public_skill_package",
+  "allowed_operations": ["scale", "position", "recolor_monochrome"],
+  "forbidden_operations": ["redraw", "distort", "change_letterforms", "change_geometry", "use_as_training_reference"]
 }

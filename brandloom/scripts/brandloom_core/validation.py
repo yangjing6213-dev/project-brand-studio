@@ -14,6 +14,7 @@ from typing import Iterable, Mapping
 from PIL import Image, ImageCms
 
 from .models import BrandBrief
+from .treatments import canonicalize_logo_treatment, operation_for_treatment
 
 
 @dataclass(frozen=True)
@@ -383,6 +384,42 @@ def validate_output(
     checks["company_logo_hash"] = bool(logo_hash)
     if not checks["company_logo_hash"]:
         failures.append("company_logo_hash")
+    treatment_raw = payload.get("logo_treatment")
+    expected_treatment = None
+    if brief is not None:
+        brief_assets = brief.assets if isinstance(brief, BrandBrief) else brief.get("assets", {}) if isinstance(brief, Mapping) else {}
+        if isinstance(brief_assets, Mapping):
+            brief_selected = brief_assets.get("company_logo_treatment", brief_assets.get("logo_treatment"))
+            if brief_selected not in (None, ""):
+                try:
+                    expected_treatment = canonicalize_logo_treatment(brief_selected)
+                except ValueError:
+                    expected_treatment = "invalid"
+                treatment_raw = brief_selected if treatment_raw is None else treatment_raw
+    try:
+        treatment = canonicalize_logo_treatment(treatment_raw)
+        treatment_valid = isinstance(treatment_raw, str) or treatment_raw is None
+    except ValueError:
+        treatment, treatment_valid = "default", False
+    checks["manifest_logo_treatment"] = treatment_valid and (expected_treatment is None or treatment == expected_treatment)
+    checks["manifest_logo_operation"] = True
+    checks["manifest_logo_confirmation"] = True
+    checks["manifest_logo_source_hash"] = True
+    if treatment != "default":
+        operation = payload.get("logo_operation")
+        confirmation = payload.get("logo_confirmation")
+        source_hash = payload.get("logo_source_hash")
+        checks["manifest_logo_operation"] = operation == operation_for_treatment(treatment)
+        checks["manifest_logo_confirmation"] = confirmation == treatment
+        checks["manifest_logo_source_hash"] = isinstance(source_hash, str) and bool(source_hash) and source_hash == logo_hash
+        company_entries = [entry for entry in (assets if isinstance(assets, list) else ())
+                           if isinstance(entry, Mapping) and str(entry.get("category", "")) == "company-logo"]
+        checks["manifest_logo_source_hash"] = checks["manifest_logo_source_hash"] and bool(company_entries) and all(
+            str(entry.get("sha256", entry.get("observed_sha256", ""))) == str(source_hash) for entry in company_entries
+        )
+    for name in ("manifest_logo_treatment", "manifest_logo_operation", "manifest_logo_confirmation", "manifest_logo_source_hash"):
+        if not checks[name]:
+            failures.append(name)
     if brief is not None:
         brief_valid, expected_copy = _brief_copy(brief)
         checks["brief_schema"] = brief_valid

@@ -13,6 +13,22 @@ from PIL import Image, ImageCms, ImageColor, ImageDraw, ImageFont
 from .fonts import missing_glyphs
 from .layout import TextLayout, TextOverflowError, fit_text_box
 from .models import BrandBrief
+from .treatments import canonicalize_logo_treatment, operation_for_treatment
+
+
+def _asset_operation_forbidden(path: Path, operation: str) -> bool:
+    """Read adjacent machine-readable operation policy for packaged assets."""
+    candidates = (path.with_name(f"{path.stem}.provenance.json"), path.with_name("provenance.json"))
+    for metadata in candidates:
+        if not metadata.is_file():
+            continue
+        try:
+            payload = json.loads(metadata.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        forbidden = payload.get("forbidden_operations", ())
+        return isinstance(forbidden, (list, tuple)) and operation in forbidden
+    return False
 
 
 class BrandIntegrityError(ValueError):
@@ -93,13 +109,10 @@ def _selected_logo_treatment(brief: BrandBrief | Mapping[str, object], explicit:
     else:
         assets = brief.get("assets", {})
         selected = assets.get("company_logo_treatment", assets.get("logo_treatment", "default")) if isinstance(assets, Mapping) else "default"
-    if selected in (None, ""):
-        return "default"
-    if not isinstance(selected, str):
-        raise BrandIntegrityError("company logo treatment must be a JSON string")
-    if selected not in {"default", "monochrome-black"}:
-        raise BrandIntegrityError(f"unsupported company logo treatment: {selected}")
-    return selected
+    try:
+        return canonicalize_logo_treatment(selected)
+    except ValueError as exc:
+        raise BrandIntegrityError(str(exc)) from exc
 
 
 def _slot(payload: Mapping[str, object], name: str) -> dict[str, int]:
@@ -152,6 +165,7 @@ def render_brand_asset(
     font_paths: Mapping[str, Path | str],
     output_dir: Path,
     logo_treatment: str | None = None,
+    confirmed_treatment: str | None = None,
 ) -> RenderResult:
     template = load_template(template_path)
     canvas = template["canvas"]
@@ -162,6 +176,15 @@ def render_brand_asset(
         background = background.resize((width, height), Image.Resampling.LANCZOS)
     output = background.convert("RGBA")
     selected_treatment = _selected_logo_treatment(brief, logo_treatment)
+    if selected_treatment != "default":
+        if confirmed_treatment is None:
+            raise BrandIntegrityError("company logo treatment requires exact affirmative confirmation")
+        try:
+            confirmed = canonicalize_logo_treatment(confirmed_treatment)
+        except ValueError as exc:
+            raise BrandIntegrityError(str(exc)) from exc
+        if confirmed != selected_treatment:
+            raise BrandIntegrityError("company logo treatment is not affirmatively confirmed")
     hashes: dict[str, str] = {}
     template_file = Path(template_path)
     if template_file.is_file():
@@ -174,6 +197,8 @@ def render_brand_asset(
         if digest:
             hashes["company_logo"] = digest
         slot = _slot(template["slots"], "company_logo")  # type: ignore[arg-type]
+        if selected_treatment == "monochrome-black" and isinstance(asset_paths["company_logo"], (str, Path)) and _asset_operation_forbidden(Path(asset_paths["company_logo"]), operation_for_treatment(selected_treatment)):
+            raise BrandIntegrityError("company logo asset forbids recolor_monochrome")
         logo = _apply_logo_treatment(logo, selected_treatment)
         fitted, logo_size = _fit(logo, int(slot["w"]), int(slot["h"]))
         x = int(slot["x"]) + (int(slot["w"]) - fitted.width) // 2
@@ -214,7 +239,7 @@ def render_brand_asset(
         missing = missing_glyphs(font_path, text)
         if missing:
             chars = " ".join(repr(char) for char in missing)
-            raise BrandIntegrityError(f"confirmed {role} font cannot render copy characters: {chars}; select a CJK-capable font")
+            raise BrandIntegrityError(f"confirmed {role} font cannot render copy characters: {chars}; select a font that supports these characters")
         layout = fit_text_box(
             text,
             (int(slot["w"]), int(slot["h"])),

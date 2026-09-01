@@ -3,6 +3,7 @@
 from dataclasses import replace
 
 from .models import QAState, QASession, RightsStatus
+from .treatments import canonicalize_logo_treatment
 
 
 class GenerationGateError(RuntimeError):
@@ -48,7 +49,7 @@ INVALIDATION_RULES = {
     "copy": (QAState.COPY_DIRECTION_PENDING, ("copy", "shot_list", "coherence", "generation_confirmation")),
     "style": (QAState.FONT_PENDING, ("font", "shot_list", "output_spec", "coherence", "generation_confirmation")),
     "font": (QAState.FONT_PENDING, ("font", "shot_list", "coherence", "generation_confirmation")),
-    "company_logo": (QAState.COMPANY_LOGO_PENDING, ("company_logo", "shot_list", "coherence", "generation_confirmation")),
+    "company_logo": (QAState.COMPANY_LOGO_PENDING, ("company_logo", "company_logo_treatment", "shot_list", "coherence", "generation_confirmation")),
     "project_mark": (QAState.PROJECT_MARK_PENDING, ("project_mark", "shot_list", "coherence", "generation_confirmation")),
     "ip_cast": (QAState.IP_CAST_PENDING, ("ip_cast", "ip_combination", "custom_ip_reference", "custom_ip_draft", "rights", "ip_usage", "shot_list", "coherence", "generation_confirmation")),
     "ip_combination": (QAState.IP_COMBINATION_PENDING, ("ip_combination", "custom_ip_reference", "custom_ip_draft", "rights", "ip_usage", "shot_list", "coherence", "generation_confirmation")),
@@ -82,7 +83,7 @@ PENDING_CONFIRMATION_KEYS: dict[QAState, str] = {
 }
 
 _CONFIRMATION_ONLY = frozenset(PENDING_CONFIRMATION_KEYS.values()) - {"ip_cast", "rights"}
-_KNOWN_KEYS = frozenset((*_CONFIRMATION_ONLY, "ip_cast", "rights"))
+_KNOWN_KEYS = frozenset((*_CONFIRMATION_ONLY, "ip_cast", "rights", "company_logo_treatment"))
 
 
 def _has_confirmation(session: QASession, key: str) -> bool:
@@ -112,7 +113,16 @@ def confirm(session: QASession, key: str, value: object) -> QASession:
     if not isinstance(key, str) or not key.strip() or key not in _KNOWN_KEYS:
         raise ValueError(f"unknown QA key: {key}")
     expected_key = PENDING_CONFIRMATION_KEYS.get(session.state)
-    if expected_key != key:
+    if key == "company_logo_treatment":
+        if session.state is not QAState.COMPANY_LOGO_PENDING:
+            raise ValueError(f"confirmation {key} is not accepted in state {session.state}")
+        try:
+            value = canonicalize_logo_treatment(value)
+        except ValueError as exc:
+            raise ValueError(str(exc)) from exc
+        if value == "default":
+            raise ValueError("company logo treatment confirmation must select a concrete treatment")
+    elif expected_key != key:
         raise ValueError(f"confirmation {key} is not accepted in state {session.state}")
     if key in _CONFIRMATION_ONLY:
         if type(value) is not bool or value is not True:
@@ -147,6 +157,8 @@ def assert_generation_ready(session: QASession) -> None:
     unknown = [key for key in session.confirmed if key not in _KNOWN_KEYS]
     if unknown:
         raise GenerationGateError(f"unknown confirmations: {', '.join(unknown)}")
+    if "company_logo_treatment" in session.confirmed and not _has_valid_confirmation(session, "company_logo_treatment"):
+        raise GenerationGateError("company_logo_treatment must be a canonical confirmed treatment")
     missing = [key for key in _REQUIRED if not _has_valid_confirmation(session, key)]
     ip_cast = session.confirmed.get("ip_cast")
     if ip_cast not in {"author-anime", "tuotuo", "xingbi", "custom"}:
@@ -172,4 +184,9 @@ def _has_valid_confirmation(session: QASession, key: str) -> bool:
         return isinstance(value, str) and value in {"author-anime", "tuotuo", "xingbi", "custom"}
     if key == "rights":
         return isinstance(value, str) and value in {status.value for status in RightsStatus}
+    if key == "company_logo_treatment":
+        try:
+            return value != "default" and canonicalize_logo_treatment(value) == value
+        except ValueError:
+            return False
     return False

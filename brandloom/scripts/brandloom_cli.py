@@ -27,6 +27,8 @@ try:
     from .brandloom_core.models import AssetCategory, AssetScope, BrandBrief, QAState, QASession, RightsStatus, TaskMode
     from .brandloom_core.paths import project_output_dir, project_root, safe_project_slug
     from .brandloom_core.renderer import render_brand_asset, rendered_copy_values
+    from .brandloom_core.renderer import BrandIntegrityError
+    from .brandloom_core.treatments import canonicalize_logo_treatment, operation_for_treatment
     from .brandloom_core.state_machine import advance, assert_generation_ready, confirm, invalidate_from
     from .brandloom_core.prompt_builder import build_host_request, validate_generated_path
     from .brandloom_core.validation import validate_output, validate_accepted_logo_evidence
@@ -38,6 +40,8 @@ except ImportError:  # pragma: no cover - supports direct script execution
     from brandloom.scripts.brandloom_core.models import AssetCategory, AssetScope, BrandBrief, QAState, QASession, RightsStatus, TaskMode
     from brandloom.scripts.brandloom_core.paths import project_output_dir, project_root, safe_project_slug
     from brandloom.scripts.brandloom_core.renderer import render_brand_asset, rendered_copy_values
+    from brandloom.scripts.brandloom_core.renderer import BrandIntegrityError
+    from brandloom.scripts.brandloom_core.treatments import canonicalize_logo_treatment, operation_for_treatment
     from brandloom.scripts.brandloom_core.state_machine import advance, assert_generation_ready, confirm, invalidate_from
     from brandloom.scripts.brandloom_core.prompt_builder import build_host_request, validate_generated_path
     from brandloom.scripts.brandloom_core.validation import validate_output, validate_accepted_logo_evidence
@@ -242,6 +246,8 @@ def _asset_manifest_entry(resolved) -> dict[str, object]:
         "rights_status": record.rights_status.value,
         "path": str(resolved.path),
         "sha256": record.sha256,
+        "allowed_operations": list(record.allowed_operations),
+        "forbidden_operations": list(record.forbidden_operations),
     }
 
 
@@ -330,9 +336,22 @@ def _compose(args: argparse.Namespace) -> int:
         if isinstance(reference, dict):
             used_assets.append(dict(reference))
     font_paths = _resolve_font_paths(brief)
-    logo_treatment = brief.assets.get("company_logo_treatment", brief.assets.get("logo_treatment"))
+    try:
+        logo_treatment = canonicalize_logo_treatment(brief.assets.get("company_logo_treatment", brief.assets.get("logo_treatment")))
+    except ValueError as exc:
+        raise BrandIntegrityError(str(exc)) from exc
+    confirmed_treatment = session.confirmed.get("company_logo_treatment")
+    if confirmed_treatment is not None and confirmed_treatment != logo_treatment:
+        raise BrandIntegrityError("company logo treatment changed after confirmation")
+    if logo_treatment != "default" and confirmed_treatment != logo_treatment:
+        raise BrandIntegrityError("company logo treatment requires exact affirmative confirmation")
+    if logo_treatment in getattr(logo.record, "forbidden_operations", ()) or (
+        logo_treatment == "monochrome-black" and operation_for_treatment(logo_treatment) in logo.record.forbidden_operations
+    ):
+        raise BrandIntegrityError("selected company logo asset forbids recolor_monochrome")
     result = render_brand_asset(template, brief, base_image=base_path, asset_paths=asset_paths,
-                                font_paths=font_paths, output_dir=output_dir, logo_treatment=logo_treatment)
+                                font_paths=font_paths, output_dir=output_dir, logo_treatment=logo_treatment,
+                                confirmed_treatment=confirmed_treatment)
     next_session = _post_compose_session(session, args.type)
     manifest = build_generation_manifest(
         brief_path=root / "brand-brief.json", assets=used_assets, template_path=template,
@@ -343,6 +362,8 @@ def _compose(args: argparse.Namespace) -> int:
         host_request=host_request,
         logo_treatment=result.logo_treatment,
         logo_source_hash=result.source_hashes.get("company_logo"),
+        logo_operation=operation_for_treatment(result.logo_treatment),
+        logo_confirmation=confirmed_treatment,
     )
     write_manifest(_versioned_manifest(output_dir), manifest)
     if args.type == "logo-card":

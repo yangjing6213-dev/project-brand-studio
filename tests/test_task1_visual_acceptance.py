@@ -46,7 +46,8 @@ class Task1VisualAcceptanceTests(unittest.TestCase):
             root = Path(directory)
             base, logo = self._fixtures(root)
             result = render_brand_asset(Path("brandloom/templates/logo-card-1x1.json"), self._brief(treatment="monochrome-black"),
-                                        base_image=base, asset_paths={"company_logo": logo}, font_paths=self._fonts(), output_dir=root / "out")
+                                        base_image=base, asset_paths={"company_logo": logo}, font_paths=self._fonts(), output_dir=root / "out",
+                                        confirmed_treatment="monochrome-black")
             self.assertEqual(result.logo_treatment, "monochrome-black")
             self.assertEqual(result.source_hashes["company_logo"], hashlib.sha256(logo.read_bytes()).hexdigest())
             rendered = Image.open(result.output_path).convert("RGBA")

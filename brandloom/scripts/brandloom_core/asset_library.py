@@ -28,6 +28,7 @@ _GENERATION_CATEGORIES = {
 _COMPANY_LOGO_FORBIDDEN = (
     "redraw", "distort", "change_letterforms", "change_geometry", "use_as_training_reference"
 )
+_COMPANY_LOGO_ALLOWED = ("scale", "position", "recolor_monochrome")
 
 
 class AssetManifestError(ValueError):
@@ -339,6 +340,10 @@ def _skill_default_records(category: AssetCategory, skill_root: Path) -> tuple[A
                 width, height = image.size
         except Exception as exc:
             raise AssetManifestError(f"Skill-default is not a readable image: {image_path}") from exc
+        allowed_metadata = provenance.get("allowed_operations")
+        forbidden_metadata = provenance.get("forbidden_operations")
+        allowed_ops = tuple(str(item) for item in allowed_metadata) if isinstance(allowed_metadata, list) else (("scale", "position") if category is AssetCategory.COMPANY_LOGO else ())
+        forbidden_ops = tuple(str(item) for item in forbidden_metadata) if isinstance(forbidden_metadata, list) else ((_COMPANY_LOGO_FORBIDDEN + (("recolor_monochrome",) if directory.name == "enhe-white-v2" else ())) if category is AssetCategory.COMPANY_LOGO else ())
         records.append(
             AssetRecord(
                 asset_id=directory.name,
@@ -351,8 +356,8 @@ def _skill_default_records(category: AssetCategory, skill_root: Path) -> tuple[A
                 rights_status=RightsStatus.USER_AUTHORIZED,
                 save_scope_confirmed=True,
                 default_scope=AssetScope.SKILL_DEFAULTS,
-                allowed_operations=("scale", "position") if category is AssetCategory.COMPANY_LOGO else (),
-                forbidden_operations=_COMPANY_LOGO_FORBIDDEN if category is AssetCategory.COMPANY_LOGO else (),
+                allowed_operations=allowed_ops,
+                forbidden_operations=forbidden_ops,
                 created_at=str(provenance.get("confirmed_at", "")),
             )
         )

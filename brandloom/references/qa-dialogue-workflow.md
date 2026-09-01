@@ -38,7 +38,7 @@
 - `COPY_DIRECTION_PENDING`：项目介绍型（推荐）；痛点—解决方案—结果型；核心功能型；使用场景与工作流型；商业转化型。
 - `STYLE_PENDING` 顶层仅三类：`reference-adaptive`（推荐）；`editorial-minimal`；`soft-3d-brand`。选择 `reference-adaptive` 后再选四个主家族：`bright-saas-real-scene`、`dark-neon-product`、`high-density-commercial`、`cinematic-monitor-hero`；另列两个具体 profile：`editorial-minimal-grid`、`soft-3d-brand-icon`（不增加顶层菜单数量）。
 - `FONT_PENDING`：微软雅黑 + Segoe UI（推荐）；思源黑体 + Inter；HarmonyOS Sans + Inter；阿里妈妈数黑体 + Montserrat；得意黑 + Space Grotesk。缺失字体必须确认回退。
-- `COMPANY_LOGO_PENDING`：仅本次使用（推荐）；保存当前项目不设默认；保存当前项目并设项目默认；保存个人库不设默认；保存个人库并设个人默认；另确认权利和允许操作。默认允许 `scale`、`position`；`recolor_monochrome`、`opacity`、`external_shadow` 仅在用户确认后允许；禁止 `redraw`、`distort`、`change_letterforms`、`change_geometry`、`use_as_training_reference`。
+- `COMPANY_LOGO_PENDING`：仅本次使用（推荐）；保存当前项目不设默认；保存当前项目并设项目默认；保存个人库不设默认；保存个人库并设个人默认；另确认权利和允许操作。默认允许 `scale`、`position`；`recolor_monochrome`（规范 operation，映射为 concrete treatment `monochrome-black`）、`opacity`、`external_shadow` 仅在用户确认后允许；禁止 `redraw`、`distort`、`change_letterforms`、`change_geometry`、`use_as_training_reference`。非默认 treatment 必须在此状态记录 `confirmed.company_logo_treatment`。
 - `PROJECT_MARK_PENDING`：使用当前上传；上传新的；使用项目库；本次不放；生成新概念分支。
 - `IP_CAST_PENDING`：黑发动漫人物；拓拓；星比；拓拓 + 星比（推荐）；更多组合或自定义 IP。`IP_COMBINATION_PENDING`：黑发人物 + 拓拓；黑发人物 + 星比；三者；上传自定义 IP；返回上一层。
 - `CUSTOM_IP_REFERENCE_PENDING`：确认真实可访问参考；确认仅抽象分析、不复制外形；补充/更换参考；返回；取消。`CUSTOM_IP_DRAFT_PENDING`：确认抽象 profile 草稿；修改 profile；重新分析；返回；取消。`RIGHTS_CONFIRM_PENDING`：确认 `user_authorized` 使用权；声明 `analysis_only`/`unknown`/`missing`/`draft_unconfirmed`；确认保存 scope 和 default scope；返回；取消。非 `user_authorized` 必须阻塞，不得生成。

@@ -68,6 +68,7 @@ delivered artifact.
 | ID | Objective | Files likely affected | Acceptance criteria | Verification | Dependencies | Status |
 |---|---|---|---|---|---|---|
 | T1 | Add explicit black logo treatment and CJK glyph coverage guard | `renderer.py`, `fonts.py`, tests, focused docs | RED→GREEN; source hash and geometry preserved; missing glyphs fail closed | focused tests, related/full unittest, diff/status, independent review | existing asset/renderer contracts | verified |
+| T4 | Final concentrated review-fix wave | treatment mapping, state confirmation, asset policy, manifest QA, tests/docs | five final-review findings covered; RED→GREEN; T2 remains PARTIAL | focused/related/full tests, compileall, two package builds/audit, diff/status | T1; existing T2 gate | verified |
 | T2 | Run host image generation and two fresh compositions | ignored `.brandloom/`, `F:/Projects/cognitive-anchor-sketcher/assets/brandloom-visual-acceptance/`, evidence report | exact dimensions, valid paths, black logo legible, Chinese copy readable, no overwrite | image inspection, BrandLoom CLI QA/delivery, manifest audit | T1; `GENERATION_READY` | blocked |
 | T3 | Finalize evidence and package | active plan, ignored SDD ledger, package output | full executable verification and package audit; no scope drift | full unittest, compileall, deterministic ZIP audit, diff/status | T1–T2 | verified |
 
@@ -76,6 +77,7 @@ delivered artifact.
 - T1 implementation commits: `1973f4d2c65b842ca06ae2e2d686b4e5e8a7fe32` and review-fix commit `5db6c1eb6f17327830830462b24b18dd2253ef07`. The initial independent review was `NEEDS_FIX` (missing-glyph sentinel and CLI error-type findings); both fixes are in the second commit. Fresh Task 3 full unittest evidence is 143 tests passing.
 - T3 executed with bundled Python 3.12.13 and Pillow 12.3.0: full unittest (143), `compileall -q brandloom tests`, and focused package/asset tests (21) all passed. Two direct package builds produced identical SHA-256 `2a0dc4d22252b896ad0c930797e5e64ca1fcdb2da654ff02344401814c906ce7`.
 - ZIP audit found 59 unique entries and no entries from `.brandloom`, `staging`, `tests`, `.superpowers`, `.git`, or `__pycache__`; it also found no supplied composite sheet, cognitive-anchor/generated-image paths, or secret/private-path content.
+- Final concentrated fix wave: added shared operation→treatment mapping, state-bound `company_logo_treatment` confirmation and invalidation, machine-readable ENHE operation policy, strict non-default manifest treatment/hash/operation/confirmation QA, and Emoji-safe glyph sentinels. Focused RED was observed before implementation; focused/related suite now passes 62 tests and full suite passes 148 tests. T2 exact-size generation remains PARTIAL/blocked.
 
 ## Current Work
 
@@ -98,6 +100,7 @@ delivered artifact.
 - `-m compileall -q brandloom tests` -> exit 0.
 - `-m unittest tests.test_package tests.test_task3_assets -v` -> 21 tests, OK (exit 0).
 - `scripts/build_skill_package.py` twice -> matching SHA-256 above (exit 0); ZIP audit -> 59 unique entries, zero excluded/composite/private-path/secret hits.
+- Final fix package builds (`dist/final-fix-a.zip`, `dist/final-fix-b.zip`) -> matching SHA-256 `7aa9ee12666fd86be6266b7a8b7014449886fc9f51efca6845177b3b27f9ae59`; 60 unique entries, zero excluded entries.
 
 ## Important Decisions
 

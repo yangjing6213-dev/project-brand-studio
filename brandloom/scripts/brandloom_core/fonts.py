@@ -52,7 +52,10 @@ def missing_glyphs(font_path: Path | str, text: str, *, size: int = 32) -> tuple
 
     # Include permanently/unassigned codepoints so fonts with a distinct .notdef
     # mask are still detected (some fonts do not match U+FFFD or '?').
-    missing_signatures = {signature(value) for value in ("\ufffd", "\u25a1", "?", "\u0378", "\U0001f600")}
+    # Use only permanently unassigned/noncharacter codepoints.  Do not use
+    # assigned glyphs (for example U+1F600) as sentinels: Emoji-capable fonts
+    # legitimately render those characters.
+    missing_signatures = {signature(value) for value in ("\ufffd", "\u25a1", "?", "\u0378", "\ufdd0", "\U0002ffff", "\U0010ffff")}
     return tuple(dict.fromkeys(char for char in text if ord(char) > 127 and signature(char) in missing_signatures))
 
 
