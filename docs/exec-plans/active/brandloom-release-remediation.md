@@ -48,6 +48,41 @@ Close the final BrandLoom Critical and Important release blockers under the user
 | T3 | Integrate the four new exact assets with truthful provenance | default asset profiles, prompt references, package/profile tests, NOTICE | only after explicit authorization; all four exact hashes represented without redraw/overwrite; appearance vs geometry roles explicit; package builder accepts truthful provenance | image/hash/provenance tests, visual inspection, full unittest, package audit, review | T2 + explicit new-file authorization | blocked |
 | T4 | Re-run acceptance, package, and final review | tests, ignored workspaces, active plan/ledger, dist | negative exploit fails, two workspaces satisfy code-level flows, package deterministic, final reviewer finds no Critical/Important | full verification, double build, ZIP audit, manual views, final review | T1–T3 | pending |
 
+### Task 1: Enforce affirmative, state-bound QA confirmations
+
+- Write focused failing tests before production changes for: raw negative/descriptive strings; unknown keys; a valid key submitted in the wrong pending state; advancing out of a pending state without its matching valid confirmation; malformed built-in/custom routing values; legacy ambiguous ready sessions; and a complete legal built-in/custom flow.
+- Confirmation-only keys accept only the exact JSON boolean `true`. `ip_cast` accepts only `author-anime`, `tuotuo`, `xingbi`, or `custom`; `rights` accepts documented `RightsStatus` values, while only `user_authorized` reaches generation-ready.
+- Map every pending state to its single expected confirmation key. `advance()` must enforce that mapping before leaving the state, except transitions to `CANCELLED`.
+- Revalidate the complete persisted confirmation set in `assert_generation_ready()`; never trust truthiness or state alone.
+- Keep downstream invalidation behavior and the custom-IP branch intact. Upgrade CLI/workflow documentation and fixtures without silently converting legacy raw values.
+- Run focused state/pipeline tests, the full suite, `git diff --check`, and `git status --short`; commit; then undergo independent specification/code/test/scope review.
+
+### Task 2: Close manifest, accepted-logo, project-mark, and version gaps
+
+- Write focused failing tests before production changes for: a manifest missing each required production section; a logo file changed after explicit logo acceptance; a requested/default project mark that cannot resolve; manifest versions `v99` and `v100`; and an isolated output-collision case.
+- Remove the incomplete-manifest compatibility path from public validation and upgrade fixtures to full production manifests.
+- Persist the exact accepted logo output path/hash evidence at logo delivery, clear it when relevant upstream state is invalidated, and require a match before cover composition.
+- Treat project-mark omission as valid only for an explicit confirmed none/false/empty selection; malformed or unresolved requested/default values hard-stop.
+- Sort generation manifests by parsed numeric version and isolate the collision regression test.
+- Preserve the established RGB/RGBA-without-ICC sRGB-compatible rule from R6.
+- Run focused localization/pipeline tests, the full suite, `git diff --check`, and `git status --short`; commit; then undergo independent review.
+
+### Task 3: Integrate the four newly supplied exact assets
+
+- This task is blocked until the user explicitly authorizes the four recorded exact hashes for public Skill distribution. Mere placement in ignored staging is not authorization.
+- After authorization, write failing hash/layout/provenance/package tests first. Define primary appearance versus supplemental geometry references so the shared 2D pair image and two 3D five-view sheets are not treated as interchangeable visual truth.
+- Copy exact authorized bytes only; do not redraw, crop, recolor, overwrite, or invent provenance. Record truthful filename, SHA-256, confirmation source/time, scope, and reference roles.
+- Assess the white ENHE transparency edge artifact without modifying logo geometry. If exact bytes are unsuitable, stop this asset replacement rather than silently cleaning or substituting it.
+- Run focused asset/profile/package tests, full tests, ZIP audit, visual inspection, diff/status checks; commit; then undergo independent review.
+
+### Task 4: Re-run acceptance, package, and final review
+
+- Reproduce and verify rejection of the original all-`"no"` exploit.
+- Run complete unittest and compile checks; build the ZIP twice and compare hashes; inspect ZIP contents/exclusions and provenance.
+- Execute the two specified offline workspace acceptance flows. If the host image tool is absent, mark visual generation acceptance `PARTIAL` without inventing a pass.
+- Use the strongest available independent reviewer for a whole-branch review. Perform at most one concentrated fix round and one scope re-review, then rule on every residual finding.
+- Apply verification-before-completion, update plan/ledger with exact evidence and SHAs, and use finishing-a-development-branch to present merge/keep options without merging, pushing, releasing, or publishing.
+
 ## Completed + Verified
 - Baseline only: 106/106 tests passed; worktree and runtime verified.
 
