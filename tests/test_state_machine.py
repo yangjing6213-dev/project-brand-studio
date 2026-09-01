@@ -128,18 +128,24 @@ class StateMachineTests(unittest.TestCase):
         assert_generation_ready(session)
 
     def test_complete_legal_custom_flow_reaches_ready(self) -> None:
-        session = session_at(QAState.IP_CAST_PENDING)
-        session = confirm(session, "ip_cast", "custom")
-        session = advance(session, QAState.IP_COMBINATION_PENDING)
-        session = confirm(session, "ip_combination", True)
-        session = advance(session, QAState.CUSTOM_IP_REFERENCE_PENDING)
-        session = confirm(session, "custom_ip_reference", True)
-        session = advance(session, QAState.CUSTOM_IP_DRAFT_PENDING)
-        session = confirm(session, "custom_ip_draft", True)
-        session = advance(session, QAState.RIGHTS_CONFIRM_PENDING)
-        session = confirm(session, "rights", "user_authorized")
-        session = advance(session, QAState.IP_USAGE_PENDING)
-        self.assertEqual(session.state, QAState.IP_USAGE_PENDING)
+        session = session_at(QAState.CONTEXT_CONFIRM_PENDING)
+        flow = [
+            ("context", QAState.COPY_DIRECTION_PENDING), ("copy", QAState.STYLE_PENDING),
+            ("style", QAState.FONT_PENDING), ("font", QAState.COMPANY_LOGO_PENDING),
+            ("company_logo", QAState.PROJECT_MARK_PENDING), ("project_mark", QAState.IP_CAST_PENDING),
+            ("ip_cast", QAState.IP_COMBINATION_PENDING), ("ip_combination", QAState.CUSTOM_IP_REFERENCE_PENDING),
+            ("custom_ip_reference", QAState.CUSTOM_IP_DRAFT_PENDING),
+            ("custom_ip_draft", QAState.RIGHTS_CONFIRM_PENDING),
+            ("rights", QAState.IP_USAGE_PENDING), ("ip_usage", QAState.SHOT_LIST_PENDING),
+            ("shot_list", QAState.OUTPUT_SPEC_PENDING), ("output_spec", QAState.COHERENCE_REVIEW_PENDING),
+            ("coherence", QAState.GENERATION_CONFIRM_PENDING),
+            ("generation_confirmation", QAState.GENERATION_READY),
+        ]
+        for key, target in flow:
+            value = "custom" if key == "ip_cast" else "user_authorized" if key == "rights" else True
+            session = confirm(session, key, value)
+            session = advance(session, target)
+        assert_generation_ready(session)
 
 
 if __name__ == "__main__":
