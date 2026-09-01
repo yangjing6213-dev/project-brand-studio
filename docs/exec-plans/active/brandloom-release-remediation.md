@@ -88,10 +88,10 @@ Close the final BrandLoom Critical and Important release blockers under the user
 - Task 1: strict state-bound affirmative confirmations implemented in `3bd2873`; review fix `120a552` completed the full custom flow test. Focused state 17/17, pipeline 16/16, full 114/114, compileall and diff/status checks passed; independent re-review marked the Important finding ADDRESSED with no new Critical/Important breakage.
 
 ## Current Work
-- Tasks 1–3 are implemented, tested, committed, and independently reviewed. Task 4 offline final acceptance and package audit completed; independent whole-branch review remains required.
+- Tasks 1–4 are implemented, tested, committed, and independently reviewed. Final offline acceptance, package audit, whole-branch review, and the single scope re-review are recorded.
 
 ## Remaining Work
-- Independent whole-branch review and final adjudication; host visual generation remains unavailable by constraint.
+- No code remediation remains in scope. Host-side visual generation and composition-level contrast/font review remain the only unverified acceptance layer; integration is a user choice.
 
 ## Failures
 - Prior branch verdict is `FAIL`: one Critical and three Important release blockers remain at starting HEAD.

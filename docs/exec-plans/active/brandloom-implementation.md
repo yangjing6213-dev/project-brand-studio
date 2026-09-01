@@ -9,7 +9,7 @@ Build the installable `brandloom` Codex Skill in repository `project-brand-studi
 - Acceptance Criteria: Each task has TDD red/green evidence, target and related suites, diff/status checks, a commit, and an independent spec/quality review; final suite/build/package checks and manual workspace acceptance are evidenced.
 - Deliverables: `brandloom/` skill, runtime modules, references/templates/assets only when authorized, tests, docs, CI, and `dist/brandloom.zip`.
 - Non-goals: External image/API calls, publishing, GitHub release, Figma/cloud sync, bundled fonts, third-party reference poster distribution, or automatic data deletion.
-- Risks: Missing Python launcher (bundled runtime is available); Task 6 requires explicit public-distribution authorization for three exact source files; host may lack an image-generation tool, making visual acceptance partial.
+- Risks: Missing Python launcher (bundled runtime is available); historical Task 6 required authorization for three original source files, while remediation Task 3 records explicit authorization for the four newly supplied exact files; host may lack an image-generation tool, making visual acceptance partial.
 - Testing Strategy: Strict per-task TDD with focused unittest, related full discovery, `git diff --check`, status review, package contract tests, and final independent review.
 
 ## Current Repository State
