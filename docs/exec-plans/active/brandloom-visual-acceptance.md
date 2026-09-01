@@ -123,3 +123,51 @@ delivered artifact.
 - Requirements verified: T1 code-level black-treatment and CJK tests; generated-base inspection; hard-stop on invalid generation dimensions; full test/compile/package and deterministic ZIP evidence.
 - Not verified: final composed black-logo contrast, Chinese glyph readability in a delivered composition, alpha/manifest values for that composition, and reviewed delivery. No final visual acceptance is claimed.
 - Remaining risks: host image generation can return correct aspect ratios with non-contract pixel dimensions; no resize, fallback, or automatic retry is authorized. The scoped re-review also records a P2 manifest QA residual: validation can fall back to the brief treatment when the top-level field is absent and accepts the operation alias after canonicalization. This is explicitly adjudicated for a later bounded change, not silently treated as closed.
+
+## User-approved dimension amendment (2026-09-02)
+
+The user explicitly authorized changing the default output contract to match the
+host's stable returned dimensions: `logo-card` is `1254 × 1254` and `cover` is
+`1774 × 887`. This amendment supersedes the prior 2048-pixel default for new
+generation and composition runs; historical 2048-pixel evidence remains
+read-only history and is not rewritten.
+
+### Task 5 — migrate the default dimension contract
+
+#### Objective
+
+Make the host request, generated-base gate, templates, deterministic renderer,
+offline QA defaults, tests, packaged references, and dated specification
+amendment agree on the two user-approved dimensions.
+
+#### Requirements
+
+- Preserve `1:1` and `2:1` ratios and the existing JSON/Pillow-only runtime.
+- Use `1254 × 1254` for `logo-card` and `1774 × 887` for `cover` everywhere a
+  default is produced or validated.
+- Scale template canvas, safe margins, slot coordinates, and font bounds so no
+  slot is outside the new canvas and text remains deterministic.
+- Keep `social-preview` at `1280 × 640` and retain a documented custom-dimension
+  escape hatch; do not resize an invalid host return to manufacture acceptance.
+- Update or add regression tests that accept the new defaults and reject the
+  old defaults at the host-generation boundary.
+- Keep old generated files and historical evidence untouched and untracked.
+
+#### Non-goals
+
+- No new image provider, API-key path, CLI fallback, or external call.
+- No redesign of the ENHE mark, asset provenance, or unrelated visual style
+  behavior in this bounded amendment.
+
+#### Acceptance and verification
+
+- Observe RED before implementation and GREEN after the minimum changes.
+- Run focused and full unittest suites, compileall, `git diff --check`, and
+  `git status --short`.
+- Compose and validate the two already-generated v2 bases at their exact new
+  dimensions in a fresh ignored QA workspace; preserve the logo-first gate and
+  manual visual evidence.
+- Rebuild `dist/brandloom.zip` twice and verify identical bytes and exclusion
+  rules.
+- Obtain an independent task review and a final whole-branch review before
+  claiming completion.
