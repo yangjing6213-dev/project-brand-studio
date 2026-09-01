@@ -10,8 +10,14 @@ COMPANY_ROOT = ROOT / "brandloom" / "assets" / "defaults" / "company-logo" / "en
 
 EXPECTED = {
     "author-anime": {"profile.md", "provenance.json", "reference.png"},
-    "tuotuo": {"profile.md", "provenance.json", "reference.png"},
-    "xingbi": {"profile.md", "provenance.json", "reference.png"},
+    "tuotuo": {
+        "profile.md", "provenance.json", "reference.png",
+        "tuotuo-five-view-v1.png", "tuotuo-five-view-v1.provenance.json",
+    },
+    "xingbi": {
+        "profile.md", "provenance.json", "reference.png",
+        "xingbi-five-view-v1.png", "xingbi-five-view-v1.provenance.json",
+    },
 }
 
 

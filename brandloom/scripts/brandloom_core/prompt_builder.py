@@ -25,6 +25,28 @@ _IP_CUES = {
     "xingbi": "yellow five-point star, white gloves and shoes, friendly smile",
 }
 
+_SUPPLEMENTAL_REFERENCES = {
+    "tuotuo": {
+        "asset_id": "tuotuo-geometry-v1",
+        "relative_path": "assets/defaults/ip/tuotuo/tuotuo-five-view-v1.png",
+        "reference_role": "supplemental_geometry",
+        "profile_cues": _IP_CUES["tuotuo"],
+    },
+    "xingbi": {
+        "asset_id": "xingbi-geometry-v1",
+        "relative_path": "assets/defaults/ip/xingbi/xingbi-five-view-v1.png",
+        "reference_role": "supplemental_geometry",
+        "profile_cues": _IP_CUES["xingbi"],
+    },
+}
+
+_SHARED_APPEARANCE = {
+    "asset_id": "tuotuo-xingbi-front-v1",
+    "relative_path": "assets/defaults/ip/shared/tuotuo-xingbi-front-v1.png",
+    "reference_role": "shared_primary_appearance",
+    "profile_cues": f"Tuotuo: {_IP_CUES['tuotuo']}; Xingbi: {_IP_CUES['xingbi']}",
+}
+
 
 def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -70,42 +92,92 @@ def build_base_prompt(brief: BrandBrief, output_type: str, *, shot_list=None, ex
         f"{scene} Target aspect ratio: {ratio}, canvas {dimensions[0]}x{dimensions[1]}. "
         f"Use the selected style profile: {style}. Keep reserved blank text zones ({zones_text}) clean for deterministic layout. "
         f"Selected IP roles: {roles}. Include no visible company logo and no readable final marketing text; "
-        "use only abstract non-readable UI marks if needed. Do not bake copy, labels, buttons, watermarks, or signatures into the image."
+        "use only abstract non-readable UI marks if needed. Do not bake copy, labels, buttons, watermarks, or signatures into the image. When the shared pair reference is present, treat it as the primary appearance source; treat five-view references as geometry-only supplements and do not let their rendering style override that appearance."
         + shots
     )
+
+
+def _reference_provenance_path(image_path: Path) -> Path:
+    per_file = image_path.with_name(f"{image_path.stem}.provenance.json")
+    if per_file.is_file():
+        return per_file
+    return image_path.with_name("provenance.json")
+
+
+def _validated_reference(
+    image_path: Path,
+    *,
+    asset_id: str,
+    reference_role: str,
+    profile_cues: str,
+) -> dict[str, object]:
+    provenance_path = _reference_provenance_path(image_path)
+    try:
+        provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"invalid built-in reference provenance: {provenance_path}") from exc
+    if provenance.get("authorization_status") != "user_authorized" or provenance.get("distribution_scope") != "public_skill_package":
+        raise ValueError(f"built-in reference is not authorized: {asset_id}")
+    digest = _sha256(image_path)
+    expected = provenance.get("reference_sha256", provenance.get("sha256"))
+    if not isinstance(expected, str) or digest != expected.lower():
+        raise ValueError(f"built-in reference hash mismatch: {asset_id}")
+    try:
+        with Image.open(image_path) as image:
+            image.load()
+    except (UnidentifiedImageError, OSError) as exc:
+        raise ValueError(f"built-in reference is not a readable image: {asset_id}") from exc
+    return {
+        "asset_id": asset_id,
+        "category": "ip-character",
+        "scope": "skill-defaults",
+        "rights_status": "user_authorized",
+        "role": reference_role,
+        "reference_role": reference_role,
+        "profile_cues": profile_cues,
+        "path": str(image_path.resolve()),
+        "sha256": digest,
+    }
 
 
 def _builtin_reference(skill_root: Path, ip_id: str, role: str) -> dict[str, object]:
     if ip_id not in _IP_CUES:
         raise ValueError(f"custom IP reference must be supplied through the confirmed Skill route: {ip_id}")
-    directory = skill_root / "assets" / "defaults" / "ip" / ip_id
-    image_path = (directory / "reference.png").resolve()
-    provenance_path = directory / "provenance.json"
-    try:
-        provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise ValueError(f"invalid built-in IP provenance: {provenance_path}") from exc
-    if provenance.get("authorization_status") != "user_authorized":
-        raise ValueError(f"built-in IP is not authorized: {ip_id}")
-    digest = _sha256(image_path)
-    expected = provenance.get("reference_sha256", provenance.get("sha256"))
-    if not isinstance(expected, str) or digest != expected.lower():
-        raise ValueError(f"built-in IP hash mismatch: {ip_id}")
-    try:
-        with Image.open(image_path) as image:
-            image.load()
-    except (UnidentifiedImageError, OSError) as exc:
-        raise ValueError(f"built-in IP is not a readable image: {ip_id}") from exc
-    return {
-        "asset_id": ip_id,
-        "category": "ip-character",
-        "scope": "skill-defaults",
-        "rights_status": "user_authorized",
-        "role": role,
-        "profile_cues": _IP_CUES[ip_id],
-        "path": str(image_path),
-        "sha256": digest,
-    }
+    entry = _validated_reference(
+        (skill_root / "assets" / "defaults" / "ip" / ip_id / "reference.png").resolve(),
+        asset_id=ip_id,
+        reference_role="canonical_appearance",
+        profile_cues=_IP_CUES[ip_id],
+    )
+    entry["role"] = role
+    return entry
+
+
+def _supplemental_references(skill_root: Path, selected: list[tuple[str, str]]) -> list[dict[str, object]]:
+    ids = list(dict.fromkeys(ip_id for ip_id, _role in selected))
+    references: list[dict[str, object]] = []
+    if {"tuotuo", "xingbi"}.issubset(ids):
+        references.append(
+            _validated_reference(
+                (skill_root / _SHARED_APPEARANCE["relative_path"]).resolve(),
+                asset_id=str(_SHARED_APPEARANCE["asset_id"]),
+                reference_role=str(_SHARED_APPEARANCE["reference_role"]),
+                profile_cues=str(_SHARED_APPEARANCE["profile_cues"]),
+            )
+        )
+    for ip_id in ids:
+        supplemental = _SUPPLEMENTAL_REFERENCES.get(ip_id)
+        if supplemental is None:
+            continue
+        references.append(
+            _validated_reference(
+                (skill_root / str(supplemental["relative_path"])).resolve(),
+                asset_id=str(supplemental["asset_id"]),
+                reference_role=str(supplemental["reference_role"]),
+                profile_cues=str(supplemental["profile_cues"]),
+            )
+        )
+    return references
 
 
 def build_host_request(
@@ -124,10 +196,12 @@ def build_host_request(
     except KeyError as exc:
         raise ValueError(f"unsupported output type: {output_type}") from exc
     root = Path(skill_root or Path(__file__).resolve().parents[2]).resolve()
+    selected = _ip_entries(brief, output_type)
     references = [
         _builtin_reference(root, ip_id, role)
-        for ip_id, role in _ip_entries(brief, output_type)
+        for ip_id, role in selected
     ]
+    references.extend(_supplemental_references(root, selected))
     request: dict[str, object] = {
         "schema_version": "1.0",
         "backend": "host_builtin_image_tool",

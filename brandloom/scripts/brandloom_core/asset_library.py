@@ -317,7 +317,8 @@ def _skill_default_records(category: AssetCategory, skill_root: Path) -> tuple[A
         return ()
     for directory in sorted((path for path in parent.iterdir() if path.is_dir()), key=lambda path: path.name):
         image_path = directory / "reference.png"
-        provenance_path = directory / "provenance.json"
+        per_file_provenance = image_path.with_name(f"{image_path.stem}.provenance.json")
+        provenance_path = per_file_provenance if per_file_provenance.is_file() else directory / "provenance.json"
         if not image_path.is_file() or not provenance_path.is_file():
             continue
         try:

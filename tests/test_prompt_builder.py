@@ -133,7 +133,9 @@ class PromptBuilderTests(unittest.TestCase):
         self.assertEqual(request["output_type"], "logo_card")
         self.assertEqual(request["dimensions"], [2048, 2048])
         references = request["reference_assets"]
-        self.assertEqual([entry["asset_id"] for entry in references], ["author-anime", "tuotuo", "xingbi"])
+        reference_ids = [entry["asset_id"] for entry in references]
+        self.assertEqual(reference_ids[:3], ["author-anime", "tuotuo", "xingbi"])
+        self.assertEqual(reference_ids[3:], ["tuotuo-xingbi-front-v1", "tuotuo-geometry-v1", "xingbi-geometry-v1"])
         expected_cues = {
             "author-anime": "black tousled hair",
             "tuotuo": "square black glasses",
@@ -146,8 +148,9 @@ class PromptBuilderTests(unittest.TestCase):
             self.assertEqual(entry["category"], "ip-character")
             self.assertEqual(entry["rights_status"], "user_authorized")
             self.assertEqual(entry["sha256"], hashlib.sha256(path.read_bytes()).hexdigest())
-            self.assertIn(expected_cues[entry["asset_id"]], entry["profile_cues"].lower())
-            self.assertIn(expected_cues[entry["asset_id"]], request["prompt"].lower())
+            if entry["asset_id"] in expected_cues:
+                self.assertIn(expected_cues[entry["asset_id"]], entry["profile_cues"].lower())
+                self.assertIn(expected_cues[entry["asset_id"]], request["prompt"].lower())
 
     def test_cover_host_request_audits_the_accepted_logo_path_and_hash(self) -> None:
         with TemporaryDirectory() as directory:

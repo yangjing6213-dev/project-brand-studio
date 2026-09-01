@@ -1,0 +1,20 @@
+{
+  "source_filename": "拓拓与星比正视图.png",
+  "source_reference": "user-provided project asset (exact incoming file)",
+  "sha256": "0754c7c51b225e57949bd77cb80eb32195ffc6d81151fe495d9ed1fde1ebbc21",
+  "reference_sha256": "0754c7c51b225e57949bd77cb80eb32195ffc6d81151fe495d9ed1fde1ebbc21",
+  "confirmed_at": "2026-09-01T16:49:10.1239046+08:00",
+  "confirmation_recorded_at": "2026-09-01T16:49:10.1239046+08:00",
+  "confirmation_source": "user_confirmed",
+  "confirmation_scope": "public_skill_package",
+  "authorization_status": "user_authorized",
+  "distribution_scope": "public_skill_package",
+  "save_scope": "skill-defaults",
+  "save_scope_confirmed": true,
+  "default_scope": "skill-defaults",
+  "default_selection": false,
+  "reference_role": "shared_primary_appearance",
+  "transformation": "exact-byte-copy",
+  "dimensions": {"width": 1254, "height": 1254},
+  "mode": "RGBA"
+}

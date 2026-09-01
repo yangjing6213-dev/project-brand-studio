@@ -1,0 +1,20 @@
+{
+  "source_filename": "拓拓五视图.png",
+  "source_reference": "user-provided project asset (exact incoming file)",
+  "sha256": "cace50cd0e54c6180ceda2cb2797dc2fd61746fefc09a9bf64b19e008f017e46",
+  "reference_sha256": "cace50cd0e54c6180ceda2cb2797dc2fd61746fefc09a9bf64b19e008f017e46",
+  "confirmed_at": "2026-09-01T16:49:10.1239046+08:00",
+  "confirmation_recorded_at": "2026-09-01T16:49:10.1239046+08:00",
+  "confirmation_source": "user_confirmed",
+  "confirmation_scope": "public_skill_package",
+  "authorization_status": "user_authorized",
+  "distribution_scope": "public_skill_package",
+  "save_scope": "skill-defaults",
+  "save_scope_confirmed": true,
+  "default_scope": "skill-defaults",
+  "default_selection": false,
+  "reference_role": "supplemental_geometry",
+  "transformation": "exact-byte-copy",
+  "dimensions": {"width": 1672, "height": 941},
+  "mode": "RGB"
+}

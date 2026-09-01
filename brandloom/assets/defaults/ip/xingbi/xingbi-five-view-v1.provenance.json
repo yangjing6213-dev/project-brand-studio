@@ -1,0 +1,20 @@
+{
+  "source_filename": "星比五视图.png",
+  "source_reference": "user-provided project asset (exact incoming file)",
+  "sha256": "6c6fbc39b45ec8b7fd7dc6883dbb13464772fad5c5c57659ac7158de235850d9",
+  "reference_sha256": "6c6fbc39b45ec8b7fd7dc6883dbb13464772fad5c5c57659ac7158de235850d9",
+  "confirmed_at": "2026-09-01T16:49:10.1239046+08:00",
+  "confirmation_recorded_at": "2026-09-01T16:49:10.1239046+08:00",
+  "confirmation_source": "user_confirmed",
+  "confirmation_scope": "public_skill_package",
+  "authorization_status": "user_authorized",
+  "distribution_scope": "public_skill_package",
+  "save_scope": "skill-defaults",
+  "save_scope_confirmed": true,
+  "default_scope": "skill-defaults",
+  "default_selection": false,
+  "reference_role": "supplemental_geometry",
+  "transformation": "exact-byte-copy",
+  "dimensions": {"width": 1448, "height": 1086},
+  "mode": "RGB"
+}

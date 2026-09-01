@@ -68,12 +68,14 @@ def is_sha256(value: object) -> bool:
 
 
 def provenance_path_for(path: Path) -> Path | None:
-    per_directory = path.with_name("provenance.json")
+    # Prefer a same-stem record for versioned/supplemental files. Keep the
+    # directory-level fallback for the original canonical layout.
     per_file = path.with_name(f"{path.stem}.provenance.json")
-    if per_directory.is_file():
-        return per_directory
     if per_file.is_file():
         return per_file
+    per_directory = path.with_name("provenance.json")
+    if per_directory.is_file():
+        return per_directory
     return None
 
 
