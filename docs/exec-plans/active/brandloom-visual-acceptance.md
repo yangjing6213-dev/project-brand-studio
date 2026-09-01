@@ -171,3 +171,19 @@ amendment agree on the two user-approved dimensions.
   rules.
 - Obtain an independent task review and a final whole-branch review before
   claiming completion.
+
+## Post-amendment checkpoint (2026-09-02)
+
+- Task 5 implementation is verified in commits `a3ec8f9` and `bfaf744`; its
+  independent review and fix re-review are clean.
+- The new host-fixed dimensions were exercised end-to-end in a fresh ignored
+  workspace using the immutable v2 drafts. Both outputs passed automated QA and
+  reviewed delivery; the final QA state is `DELIVERED`.
+- The first black-treatment exploratory output was not delivered because its
+  contrast was insufficient on the dark base. The accepted run uses the
+  authorized white ENHE source treatment and white deterministic copy, with no
+  logo-card IP.
+- Remaining work is final branch verification: update evidence bookkeeping,
+  run the complete unittest/compile/package audit, and obtain the final
+  independent whole-branch review. The plan stays active until those checks are
+  evidenced.
