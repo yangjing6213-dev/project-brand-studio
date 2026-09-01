@@ -2,7 +2,7 @@
 
 from dataclasses import replace
 
-from .models import QAState, QASession
+from .models import QAState, QASession, RightsStatus
 
 
 class GenerationGateError(RuntimeError):
@@ -62,15 +62,43 @@ INVALIDATION_RULES = {
 
 _REQUIRED = ("context", "copy", "style", "font", "company_logo", "project_mark", "ip_cast", "ip_combination", "ip_usage", "shot_list", "output_spec", "coherence", "generation_confirmation")
 
+PENDING_CONFIRMATION_KEYS: dict[QAState, str] = {
+    QAState.CONTEXT_CONFIRM_PENDING: "context",
+    QAState.COPY_DIRECTION_PENDING: "copy",
+    QAState.STYLE_PENDING: "style",
+    QAState.FONT_PENDING: "font",
+    QAState.COMPANY_LOGO_PENDING: "company_logo",
+    QAState.PROJECT_MARK_PENDING: "project_mark",
+    QAState.IP_CAST_PENDING: "ip_cast",
+    QAState.IP_COMBINATION_PENDING: "ip_combination",
+    QAState.CUSTOM_IP_REFERENCE_PENDING: "custom_ip_reference",
+    QAState.CUSTOM_IP_DRAFT_PENDING: "custom_ip_draft",
+    QAState.RIGHTS_CONFIRM_PENDING: "rights",
+    QAState.IP_USAGE_PENDING: "ip_usage",
+    QAState.SHOT_LIST_PENDING: "shot_list",
+    QAState.OUTPUT_SPEC_PENDING: "output_spec",
+    QAState.COHERENCE_REVIEW_PENDING: "coherence",
+    QAState.GENERATION_CONFIRM_PENDING: "generation_confirmation",
+}
+
+_CONFIRMATION_ONLY = frozenset(PENDING_CONFIRMATION_KEYS.values()) - {"ip_cast", "rights"}
+_KNOWN_KEYS = frozenset((*_CONFIRMATION_ONLY, "ip_cast", "rights"))
+
 
 def _has_confirmation(session: QASession, key: str) -> bool:
-    value = session.confirmed.get(key)
-    return key in session.confirmed and value not in (False, None, "", (), [], {}) and key not in session.invalidated
+    return _has_valid_confirmation(session, key)
 
 
 def advance(session: QASession, target: QAState) -> QASession:
+    if target is not QAState.CANCELLED:
+        expected_key = PENDING_CONFIRMATION_KEYS.get(session.state)
+        if expected_key is not None and not _has_valid_confirmation(session, expected_key):
+            raise ValueError(f"{session.state} requires confirmation: {expected_key}")
     if session.state is QAState.IP_COMBINATION_PENDING:
-        is_custom = session.confirmed.get("ip_cast") == "custom"
+        ip_cast = session.confirmed.get("ip_cast")
+        if ip_cast not in {"author-anime", "tuotuo", "xingbi", "custom"}:
+            raise ValueError("ip_cast must be confirmed before selecting the combination")
+        is_custom = ip_cast == "custom"
         if is_custom and target is QAState.IP_USAGE_PENDING:
             raise ValueError("custom IP requires reference, draft, and rights confirmations")
         if not is_custom and target is QAState.CUSTOM_IP_REFERENCE_PENDING:
@@ -81,10 +109,22 @@ def advance(session: QASession, target: QAState) -> QASession:
 
 
 def confirm(session: QASession, key: str, value: object) -> QASession:
-    if not key.strip():
-        raise ValueError("confirmation key must be non-empty")
-    if value is False or value is None or value == "" or value == () or value == [] or value == {}:
-        raise ValueError(f"confirmation {key} requires an explicit non-empty value")
+    if not isinstance(key, str) or not key.strip() or key not in _KNOWN_KEYS:
+        raise ValueError(f"unknown QA key: {key}")
+    expected_key = PENDING_CONFIRMATION_KEYS.get(session.state)
+    if expected_key != key:
+        raise ValueError(f"confirmation {key} is not accepted in state {session.state}")
+    if key in _CONFIRMATION_ONLY:
+        if type(value) is not bool or value is not True:
+            raise ValueError(f"confirmation {key} requires the exact boolean true")
+    elif key == "ip_cast":
+        if not isinstance(value, str) or value not in {"author-anime", "tuotuo", "xingbi", "custom"}:
+            raise ValueError("ip_cast must be author-anime, tuotuo, xingbi, or custom")
+    elif key == "rights":
+        if isinstance(value, RightsStatus):
+            value = value.value
+        if not isinstance(value, str) or value not in {status.value for status in RightsStatus}:
+            raise ValueError("rights must be a documented RightsStatus value")
     confirmed = dict(session.confirmed)
     confirmed[key] = value
     invalidated = tuple(item for item in session.invalidated if item != key)
@@ -104,13 +144,32 @@ def invalidate_from(session: QASession, key: str) -> QASession:
 def assert_generation_ready(session: QASession) -> None:
     if session.state is not QAState.GENERATION_READY:
         raise GenerationGateError(f"generation requires GENERATION_READY, got {session.state}")
-    missing = [key for key in _REQUIRED if not _has_confirmation(session, key)]
-    if session.confirmed.get("ip_cast") == "custom":
+    unknown = [key for key in session.confirmed if key not in _KNOWN_KEYS]
+    if unknown:
+        raise GenerationGateError(f"unknown confirmations: {', '.join(unknown)}")
+    missing = [key for key in _REQUIRED if not _has_valid_confirmation(session, key)]
+    ip_cast = session.confirmed.get("ip_cast")
+    if ip_cast not in {"author-anime", "tuotuo", "xingbi", "custom"}:
+        raise GenerationGateError("ip_cast must be a canonical routing value")
+    if ip_cast == "custom":
         missing.extend(
             key for key in ("custom_ip_reference", "custom_ip_draft", "rights")
-            if not _has_confirmation(session, key)
+            if not _has_valid_confirmation(session, key)
         )
         if session.confirmed.get("rights") != "user_authorized":
             raise GenerationGateError("custom IP generation requires rights=user_authorized")
     if missing:
         raise GenerationGateError(f"missing confirmations: {', '.join(dict.fromkeys(missing))}")
+
+
+def _has_valid_confirmation(session: QASession, key: str) -> bool:
+    if key not in session.confirmed or key in session.invalidated:
+        return False
+    value = session.confirmed[key]
+    if key in _CONFIRMATION_ONLY:
+        return type(value) is bool and value is True
+    if key == "ip_cast":
+        return isinstance(value, str) and value in {"author-anime", "tuotuo", "xingbi", "custom"}
+    if key == "rights":
+        return isinstance(value, str) and value in {status.value for status in RightsStatus}
+    return False

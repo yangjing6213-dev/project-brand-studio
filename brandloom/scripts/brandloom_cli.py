@@ -396,7 +396,7 @@ def _parser() -> argparse.ArgumentParser:
     p.add_argument("--category", required=True, choices=[item.value for item in AssetCategory]); p.add_argument("--scope", required=True, choices=["project", "personal"])
     p.add_argument("--rights", required=True, choices=["user_authorized", "analysis_only"]); p.add_argument("--save-confirmed", action="store_true"); p.add_argument("--make-default", action="store_true"); p.add_argument("--asset-id"); p.set_defaults(func=_asset_add)
     p = sub.add_parser("state-show"); p.add_argument("--workspace", required=True); p.set_defaults(func=_state_show)
-    p = sub.add_parser("state-confirm"); p.add_argument("--workspace", required=True); p.add_argument("--state"); p.add_argument("--key"); p.add_argument("--value"); p.add_argument("--invalidate"); p.set_defaults(func=_state_confirm)
+    p = sub.add_parser("state-confirm", help="record the pending state's confirmation (use --value true for confirmation-only keys)"); p.add_argument("--workspace", required=True); p.add_argument("--state"); p.add_argument("--key"); p.add_argument("--value", help="JSON value; confirmation-only keys require exact true"); p.add_argument("--invalidate"); p.set_defaults(func=_state_confirm)
     p = sub.add_parser("compose"); p.add_argument("--workspace", required=True); p.add_argument("--type", required=True, choices=["logo-card", "cover"]); p.add_argument("--base", required=True); p.set_defaults(func=_compose)
     for name in ("validate", "deliver"):
         p = sub.add_parser(name); p.add_argument("--workspace", required=True); p.add_argument("--type", default="logo-card", choices=["logo-card", "cover"]); p.add_argument("--slug")

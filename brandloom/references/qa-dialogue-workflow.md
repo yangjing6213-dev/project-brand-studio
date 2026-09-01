@@ -6,6 +6,33 @@
 
 一次只问一个问题。每阶段给出互斥选项并标明推荐项；推荐、默认、沉默和模型推断都不算确认。用户可输入自定义要求。所有阶段支持 `修改`、`返回`、`取消`；发现版权、可读性或协调性风险时先提示，只有用户接受风险或采用调整后才推进。
 
+## 确认值与 CLI
+
+每个 `*_PENDING` 状态只接受下表对应的确认 key，必须先确认再离开该状态（取消除外）。确认式 key 的值必须是 JSON 布尔值 `true`；`yes`、`no`、`false`、`拒绝`、`0` 等原始文本均会被拒绝。命令行示例：
+
+`brandloom state-confirm --workspace <dir> --key context --value true --state COPY_DIRECTION_PENDING`
+
+`ip_cast` 仅接受 `author-anime`、`tuotuo`、`xingbi`、`custom`；`rights` 仅接受 `missing`、`unknown`、`draft_unconfirmed`、`analysis_only`、`user_authorized`。只有 `rights=user_authorized` 的自定义 IP 会通过生成门禁。
+
+| 待确认状态 | 唯一确认 key |
+|---|---|
+| `CONTEXT_CONFIRM_PENDING` | `context` |
+| `COPY_DIRECTION_PENDING` | `copy` |
+| `STYLE_PENDING` | `style` |
+| `FONT_PENDING` | `font` |
+| `COMPANY_LOGO_PENDING` | `company_logo` |
+| `PROJECT_MARK_PENDING` | `project_mark` |
+| `IP_CAST_PENDING` | `ip_cast` |
+| `IP_COMBINATION_PENDING` | `ip_combination` |
+| `CUSTOM_IP_REFERENCE_PENDING` | `custom_ip_reference` |
+| `CUSTOM_IP_DRAFT_PENDING` | `custom_ip_draft` |
+| `RIGHTS_CONFIRM_PENDING` | `rights` |
+| `IP_USAGE_PENDING` | `ip_usage` |
+| `SHOT_LIST_PENDING` | `shot_list` |
+| `OUTPUT_SPEC_PENDING` | `output_spec` |
+| `COHERENCE_REVIEW_PENDING` | `coherence` |
+| `GENERATION_CONFIRM_PENDING` | `generation_confirmation` |
+
 ## 菜单
 
 - `COPY_DIRECTION_PENDING`：项目介绍型（推荐）；痛点—解决方案—结果型；核心功能型；使用场景与工作流型；商业转化型。

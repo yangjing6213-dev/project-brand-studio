@@ -21,7 +21,7 @@ class PipelineTests(unittest.TestCase):
         return path
 
     def _ready_state(self) -> dict[str, object]:
-        return {
+        payload = {
             "schema_version": "1.0",
             "session_id": "pipeline-test",
             "mode": "new",
@@ -32,7 +32,7 @@ class PipelineTests(unittest.TestCase):
                 key: True
                 for key in (
                     "context", "copy", "style", "font", "company_logo", "project_mark",
-                    "ip_cast", "ip_combination", "ip_usage", "shot_list", "output_spec",
+                    "ip_combination", "ip_usage", "shot_list", "output_spec",
                     "coherence", "generation_confirmation",
                 )
             },
@@ -40,6 +40,8 @@ class PipelineTests(unittest.TestCase):
             "generation_backend": "host_builtin_image_tool",
             "updated_at": "2026-09-01T00:00:00+00:00",
         }
+        payload["confirmed"]["ip_cast"] = "tuotuo"
+        return payload
 
     def _write_ready_brief(self, root: Path, *, slug: str = "demo", assets: dict[str, object] | None = None) -> None:
         brief = {
@@ -321,7 +323,7 @@ class PipelineTests(unittest.TestCase):
                 brandloom_cli.main(["init", "--workspace", str(root)])
                 self._write_ready_brief(root, assets={"project_mark": None})
                 payload = json.loads((root / ".brandloom" / "qa-state.json").read_text())
-                payload["confirmed"]["project_mark"] = "none"
+                payload["confirmed"]["project_mark"] = True
                 (root / ".brandloom" / "qa-state.json").write_text(json.dumps(payload), encoding="utf-8")
                 base = self._asset(root, "base.png", (2048, 2048), (255, 255, 255, 255))
                 self.assertEqual(brandloom_cli.main([
