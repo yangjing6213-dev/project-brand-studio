@@ -1,13 +1,13 @@
 {
   "schema_version": "1.0",
-  "canvas": {"width": 2048, "height": 1024, "safe_margin": 51},
+  "canvas": {"width": 1774, "height": 887, "safe_margin": 44},
   "slots": {
-    "company_logo": {"x": 103, "y": 72, "w": 360, "h": 100, "fit": "contain"},
-    "title": {"x": 103, "y": 190, "w": 770, "h": 280, "min_font_size": 48, "max_font_size": 116},
-    "subtitle": {"x": 103, "y": 490, "w": 770, "h": 90, "min_font_size": 24, "max_font_size": 48},
-    "value_line": {"x": 103, "y": 600, "w": 770, "h": 80, "min_font_size": 22, "max_font_size": 40},
-    "features": {"x": 103, "y": 700, "w": 770, "h": 220, "min_font_size": 20, "max_font_size": 36},
-    "project_mark": {"x": 1280, "y": 180, "w": 600, "h": 600, "fit": "contain"},
-    "scene": {"x": 1024, "y": 0, "w": 1024, "h": 1024}
+    "company_logo": {"x": 89, "y": 62, "w": 312, "h": 87, "fit": "contain"},
+    "title": {"x": 89, "y": 165, "w": 667, "h": 243, "min_font_size": 42, "max_font_size": 100},
+    "subtitle": {"x": 89, "y": 424, "w": 667, "h": 78, "min_font_size": 21, "max_font_size": 42},
+    "value_line": {"x": 89, "y": 520, "w": 667, "h": 69, "min_font_size": 19, "max_font_size": 35},
+    "features": {"x": 89, "y": 606, "w": 667, "h": 191, "min_font_size": 17, "max_font_size": 31},
+    "project_mark": {"x": 1109, "y": 156, "w": 520, "h": 520, "fit": "contain"},
+    "scene": {"x": 887, "y": 0, "w": 887, "h": 887}
   }
 }

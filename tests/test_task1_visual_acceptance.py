@@ -22,7 +22,7 @@ class Task1VisualAcceptanceTests(unittest.TestCase):
 
     def _fixtures(self, root: Path) -> tuple[Path, Path]:
         base = root / "base.png"
-        Image.new("RGBA", (2048, 2048), "white").save(base)
+        Image.new("RGBA", (1254, 1254), "white").save(base)
         logo = root / "logo.png"
         image = Image.new("RGBA", (400, 100), (0, 0, 0, 0))
         for x in range(20, 380):
@@ -107,7 +107,7 @@ class Task1VisualAcceptanceTests(unittest.TestCase):
                 "state": "GENERATION_READY", "project_slug": "demo", "confirmed": {**confirmations, "ip_cast": "tuotuo"}, "invalidated": [],
                 "generation_backend": "host_builtin_image_tool"}), encoding="utf-8")
             base = root / "base.png"
-            Image.new("RGBA", (2048, 2048), "white").save(base)
+            Image.new("RGBA", (1254, 1254), "white").save(base)
             with self.assertRaises(BrandIntegrityError):
                 brandloom_cli.main(["compose", "--workspace", str(root), "--type", "logo-card", "--base", str(base)])
 

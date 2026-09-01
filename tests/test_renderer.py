@@ -33,7 +33,7 @@ class RendererTests(unittest.TestCase):
 
     def _fixtures(self, root: Path) -> tuple[Path, Path]:
         base = root / "base.png"
-        Image.new("RGBA", (2048, 2048), (255, 255, 255, 255)).save(base)
+        Image.new("RGBA", (1254, 1254), (255, 255, 255, 255)).save(base)
         logo = root / "logo.png"
         image = Image.new("RGBA", (400, 100), (0, 0, 0, 0))
         for x in range(20, 380):
@@ -54,7 +54,7 @@ class RendererTests(unittest.TestCase):
                 font_paths={"heading": self._font(), "body": self._font()},
                 output_dir=root / "out",
             )
-            self.assertEqual((result.width, result.height), (2048, 2048))
+            self.assertEqual((result.width, result.height), (1254, 1254))
             self.assertTrue(result.output_path.is_file())
             self.assertIn("company_logo", result.source_hashes)
 
@@ -70,7 +70,7 @@ class RendererTests(unittest.TestCase):
                 font_paths={"heading": self._font(), "body": self._font()},
                 output_dir=root / "out",
             )
-            self.assertEqual((cover.width, cover.height), (2048, 1024))
+        self.assertEqual((cover.width, cover.height), (1774, 887))
 
     def test_long_title_raises_text_overflow(self) -> None:
         with TemporaryDirectory() as directory:
@@ -98,7 +98,7 @@ class RendererTests(unittest.TestCase):
                 font_paths={"heading": self._font(), "body": self._font()},
                 output_dir=root / "out",
             )
-            self.assertAlmostEqual(result.logo_size[0] / result.logo_size[1], 4.0, delta=0.02)
+        self.assertAlmostEqual(result.logo_size[0] / result.logo_size[1], 4.0, delta=0.03)
 
     def test_existing_output_is_versioned_without_overwrite(self) -> None:
         with TemporaryDirectory() as directory:

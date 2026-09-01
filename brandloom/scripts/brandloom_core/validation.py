@@ -241,7 +241,7 @@ def _host_request_integrity(value: object, *, base: Path | None, require_accepte
         return False
     if expected_output_type and str(value.get("output_type", "")).replace("-", "_") != expected_output_type:
         return False
-    ratio = "1:1" if expected_dimensions == (2048, 2048) else "2:1" if expected_dimensions == (2048, 1024) else None
+    ratio = "1:1" if expected_dimensions == (1254, 1254) else "2:1" if expected_dimensions == (1774, 887) else None
     if not isinstance(value.get("output_type"), str) or not isinstance(value.get("aspect_ratio"), str) or (ratio and value.get("aspect_ratio") != ratio):
         return False
     if not isinstance(value.get("dimensions"), list) or tuple(value["dimensions"]) != expected_dimensions or not isinstance(value.get("prompt"), str) or not value["prompt"]:
@@ -323,7 +323,7 @@ def validate_output(
     payload = manifest or {}
     hashes = asset_hashes or {}
     if expected_dimensions is None:
-        expected_dimensions = (1280, 640) if output_type in {"social-preview", "social_preview"} else ((2048, 1024) if output_type == "cover" else (2048, 2048))
+        expected_dimensions = (1280, 640) if output_type in {"social-preview", "social_preview"} else ((1774, 887) if output_type == "cover" else (1254, 1254))
     checks: dict[str, bool] = {}
     failures: list[str] = []
     checks["output_exists"] = output.is_file()

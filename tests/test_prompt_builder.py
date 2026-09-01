@@ -34,7 +34,7 @@ class PromptBuilderTests(unittest.TestCase):
                     {"id": "xingbi", "role": "feedback/result"},
                 ]
             },
-            outputs={"logo_card": {"width": 2048, "height": 2048}},
+            outputs={"logo_card": {"width": 1254, "height": 1254}},
         )
 
     def test_logo_card_prompt_describes_safe_scene_and_selected_roles(self) -> None:
@@ -81,7 +81,7 @@ class PromptBuilderTests(unittest.TestCase):
             square = root / "square.png"
             wide = root / "wide.png"
             Image.new("RGB", (2048, 2048), "white").save(square)
-            Image.new("RGB", (2048, 1024), "white").save(wide)
+            Image.new("RGB", (1774, 887), "white").save(wide)
             with self.assertRaises(ValueError):
                 validate_generated_path(wide, expected="logo_card")
             with self.assertRaises(ValueError):
@@ -111,8 +111,8 @@ class PromptBuilderTests(unittest.TestCase):
     def test_validate_generated_path_returns_dimensions_and_rejects_unsupported_ratio(self) -> None:
         with TemporaryDirectory() as directory:
             path = Path(directory) / "generated.png"
-            Image.new("RGB", (2048, 1024), "white").save(path)
-            self.assertEqual(validate_generated_path(path), (2048, 1024))
+            Image.new("RGB", (1774, 887), "white").save(path)
+            self.assertEqual(validate_generated_path(path), (1774, 887))
             wrong = Path(directory) / "wrong.png"
             Image.new("RGB", (100, 100), "white").save(wrong)
             with self.assertRaises(ValueError):
@@ -131,7 +131,7 @@ class PromptBuilderTests(unittest.TestCase):
         )
         request = prompt_builder.build_host_request(brief, "logo_card")
         self.assertEqual(request["output_type"], "logo_card")
-        self.assertEqual(request["dimensions"], [2048, 2048])
+        self.assertEqual(request["dimensions"], [1254, 1254])
         references = request["reference_assets"]
         reference_ids = [entry["asset_id"] for entry in references]
         self.assertEqual(reference_ids[:3], ["author-anime", "tuotuo", "xingbi"])
@@ -155,7 +155,7 @@ class PromptBuilderTests(unittest.TestCase):
     def test_cover_host_request_audits_the_accepted_logo_path_and_hash(self) -> None:
         with TemporaryDirectory() as directory:
             accepted_logo = Path(directory) / "logo-card-v01.png"
-            Image.new("RGBA", (2048, 2048), "white").save(accepted_logo)
+            Image.new("RGBA", (1254, 1254), "white").save(accepted_logo)
             request = prompt_builder.build_host_request(
                 self._brief(),
                 "cover",

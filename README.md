@@ -2,6 +2,8 @@
 
 BrandLoom 是用于 Codex 的品牌视觉工作流 Skill：它以一次一个问题的确认式 QA，整理项目上下文、文案、风格、字体、权利和输出规格，再生成可追溯的 LOGO 主视觉与封面。
 
+默认尺寸为 `logo-card` 1254×1254 与 `cover` 1774×887（GitHub Social Preview 保持 1280×640）；也支持经重新检查的自定义尺寸。
+
 ## 安装与调用
 
 将本仓库的 `brandloom/` 目录复制到 Codex skills 目录（通常为 `$CODEX_HOME/skills/brandloom/`），重新打开工作区后使用：

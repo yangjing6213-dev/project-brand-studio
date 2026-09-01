@@ -2,6 +2,8 @@
 
 BrandLoom is a Codex Skill for brand-visual workflows. It uses confirmatory QA, one question at a time, to collect project context, copy, style, typography, rights, and output specifications before producing traceable logo key visuals and covers.
 
+The default sizes are `logo-card` 1254×1254 and `cover` 1774×887 (GitHub Social Preview remains 1280×640); custom dimensions are supported when revalidated.
+
 ## Install and invoke
 
 Copy this repository's `brandloom/` directory into the Codex skills directory (normally `$CODEX_HOME/skills/brandloom/`). Reopen the workspace and invoke it with:

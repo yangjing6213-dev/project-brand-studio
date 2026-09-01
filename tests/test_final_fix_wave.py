@@ -47,7 +47,7 @@ class FinalFixWaveTests(unittest.TestCase):
     def test_white_variant_forbids_recolor_in_direct_renderer(self):
         with TemporaryDirectory() as directory:
             root = Path(directory)
-            base = root / "base.png"; Image.new("RGBA", (2048, 2048), "white").save(base)
+            base = root / "base.png"; Image.new("RGBA", (1254, 1254), "white").save(base)
             logo = Path("brandloom/assets/defaults/company-logo/enhe-white-v2/reference.png")
             brief = {"copy": {"title": "Hello"}, "style": {}, "assets": {"company_logo": "enhe-white-v2", "company_logo_treatment": "monochrome-black"}}
             with self.assertRaises(BrandIntegrityError):
@@ -57,10 +57,10 @@ class FinalFixWaveTests(unittest.TestCase):
 
     def test_non_default_manifest_fields_are_required_and_tamper_checked(self):
         with TemporaryDirectory() as directory:
-            root = Path(directory); output = root / "logo-card-1x1-v01.png"; Image.new("RGBA", (2048, 2048), "white").save(output)
+            root = Path(directory); output = root / "logo-card-1x1-v01.png"; Image.new("RGBA", (1254, 1254), "white").save(output)
             logo = root / "logo.png"; Image.new("RGBA", (20, 20), "black").save(logo)
             brief = root / "brief.json"; brief.write_text(json.dumps({"copy": {"title": "Hello"}}), encoding="utf-8")
-            template = Path("brandloom/templates/logo-card-1x1.json"); base = root / "base.png"; Image.new("RGBA", (2048, 2048), "white").save(base)
+            template = Path("brandloom/templates/logo-card-1x1.json"); base = root / "base.png"; Image.new("RGBA", (1254, 1254), "white").save(base)
             digest = hashlib.sha256(logo.read_bytes()).hexdigest()
             manifest = build_generation_manifest(brief_path=brief, assets=[{"asset_id": "logo", "category": "company-logo", "scope": "project", "rights_status": "user_authorized", "path": str(logo), "sha256": digest}], template_path=template, font_paths={"heading": find_test_font()}, base_image_path=base, output_path=output, qa_state="INTERNAL_LOGO_QA", rendered_copy={"title": "Hello"}, output_type="logo-card", logo_treatment="monochrome-black", logo_source_hash=digest)
             report = validate_output(output, manifest=manifest, output_type="logo_card", manifest_path=root / "generation-manifest-v01.json")

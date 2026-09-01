@@ -10,7 +10,7 @@ from PIL import Image, UnidentifiedImageError
 
 from .models import BrandBrief
 
-_OUTPUT_SPECS = {"logo_card": ("1:1", (2048, 2048)), "cover": ("2:1", (2048, 1024))}
+_OUTPUT_SPECS = {"logo_card": ("1:1", (1254, 1254)), "cover": ("2:1", (1774, 887))}
 
 
 _IP_ROLES = {

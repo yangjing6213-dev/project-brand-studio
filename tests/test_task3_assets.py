@@ -71,7 +71,7 @@ class Task3AssetTests(unittest.TestCase):
             "1.0", {"name": "Demo", "slug": "demo"}, {"title": "Demo"},
             {"profile": "reference-adaptive"}, {},
             {"logo_card_ip": ["tuotuo", "xingbi"]},
-            {"logo_card": {"width": 2048, "height": 2048}},
+            {"logo_card": {"width": 1254, "height": 1254}},
         )
         request = build_host_request(brief, "logo_card")
         refs = request["reference_assets"]
@@ -88,7 +88,7 @@ class Task3AssetTests(unittest.TestCase):
             "1.0", {"name": "Demo", "slug": "demo"}, {"title": "Demo"},
             {"profile": "reference-adaptive"}, {},
             {"logo_card_ip": ["tuotuo"]},
-            {"logo_card": {"width": 2048, "height": 2048}},
+            {"logo_card": {"width": 1254, "height": 1254}},
         )
         ids = [entry["asset_id"] for entry in build_host_request(brief, "logo_card")["reference_assets"]]
         self.assertIn("tuotuo", ids)

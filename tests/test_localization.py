@@ -24,11 +24,11 @@ class LocalizationAndQATests(unittest.TestCase):
         return BrandBrief("1.0", {"name": "demo", "slug": "demo"},
                           {"title": title, "subtitle": subtitle}, {"foreground": "#111111"},
                           {"heading": str(self._font()), "body": str(self._font())},
-                          {"logo_card_ip": ["tuotuo"]}, {"logo_card": {"width": 2048, "height": 2048}})
+                          {"logo_card_ip": ["tuotuo"]}, {"logo_card": {"width": 1254, "height": 1254}})
 
     def _fixtures(self, root: Path) -> tuple[Path, Path, dict[str, Path]]:
         base = root / "base.png"
-        Image.new("RGBA", (2048, 2048), "white").save(base)
+        Image.new("RGBA", (1254, 1254), "white").save(base)
         logo = root / "logo.png"
         Image.new("RGBA", (400, 100), (10, 80, 180, 255)).save(logo)
         return base, logo, {"company_logo": logo, "project_mark": logo}
@@ -47,7 +47,7 @@ class LocalizationAndQATests(unittest.TestCase):
         template = root / "template.json"
         template.write_text('{"schema_version":"1.0"}', encoding="utf-8")
         base = root / "base-source.png"
-        Image.new("RGBA", output.size if isinstance(output, Image.Image) else (2048, 2048), "white").save(base)
+        Image.new("RGBA", output.size if isinstance(output, Image.Image) else (1254, 1254), "white").save(base)
         logo = root / "company-logo.png"
         Image.new("RGBA", (400, 100), (10, 80, 180, 255)).save(logo)
         font = self._font()
@@ -68,7 +68,7 @@ class LocalizationAndQATests(unittest.TestCase):
             qa_state="INTERNAL_LOGO_QA",
             rendered_copy=brief.copy,
             output_type="logo-card",
-            host_request={"schema_version": "1.0", "backend": "host_builtin_image_tool", "output_type": "logo_card", "aspect_ratio": "1:1", "dimensions": [2048, 2048], "prompt": "fixture", "reference_assets": []},
+            host_request={"schema_version": "1.0", "backend": "host_builtin_image_tool", "output_type": "logo_card", "aspect_ratio": "1:1", "dimensions": [1254, 1254], "prompt": "fixture", "reference_assets": []},
         )
         return manifest, {"brief": brief_path, "template": template, "base": base, "logo": logo, "font": font}
 
@@ -108,7 +108,7 @@ class LocalizationAndQATests(unittest.TestCase):
             root = Path(directory)
             output = root / "out.png"
             Image.new("RGBA", (100, 100), "white").save(output)
-            report = validate_output(output_path=output, expected_dimensions=(2048, 2048), manifest={"rendered_copy": {}},
+            report = validate_output(output_path=output, expected_dimensions=(1254, 1254), manifest={"rendered_copy": {}},
                                      brief=self._brief("Title", "Subtitle"), asset_hashes={"company_logo": ""}, output_type="logo_card",
                                      custom_ip_rights=["analysis_only"], logo_card_ip=["a", "b", "c", "d"])
             self.assertIsInstance(report, QAReport)
@@ -120,7 +120,7 @@ class LocalizationAndQATests(unittest.TestCase):
         with TemporaryDirectory() as directory:
             output = Path(directory) / "out.png"
             Image.new("RGBA", (100, 100), "white").save(output)
-            report = validate_output(output_path=output, expected_dimensions=(2048, 2048), manifest={"rendered_copy": {"title": "Title", "subtitle": "Subtitle"}},
+            report = validate_output(output_path=output, expected_dimensions=(1254, 1254), manifest={"rendered_copy": {"title": "Title", "subtitle": "Subtitle"}},
                                      brief=self._brief("Title", "Subtitle"), asset_hashes={"company_logo": "hash"}, output_type="logo_card")
             self.assertIn("dimensions", report.failures)
 
@@ -128,7 +128,7 @@ class LocalizationAndQATests(unittest.TestCase):
         with TemporaryDirectory() as directory:
             root = Path(directory)
             output = root / "out.png"
-            Image.new("RGBA", (2048, 2048), "white").save(output)
+            Image.new("RGBA", (1254, 1254), "white").save(output)
             base = {"rendered_copy": {"title": "wrong", "subtitle": "Subtitle"}}
             cases = (
                 ({"company_logo": ""}, (), (), "company_logo_hash"),
@@ -140,7 +140,7 @@ class LocalizationAndQATests(unittest.TestCase):
             for hashes, existing, rights, failure in cases:
                 manifest = base if failure == "manifest_copy" else {"rendered_copy": self._brief("Title", "Subtitle").copy}
                 selected = ["a", "b", "c", "d"] if failure == "logo_card_ip_count" else ["a"]
-                report = validate_output(output, expected_dimensions=(2048, 2048), manifest=manifest,
+                report = validate_output(output, expected_dimensions=(1254, 1254), manifest=manifest,
                                          brief=self._brief("Title", "Subtitle"), asset_hashes=hashes,
                                          existing_output_paths=existing, custom_ip_rights=rights,
                                          logo_card_ip=selected)
@@ -149,7 +149,7 @@ class LocalizationAndQATests(unittest.TestCase):
     def test_manifest_copy_must_use_canonical_rendered_copy(self) -> None:
         with TemporaryDirectory() as directory:
             output = Path(directory) / "out.png"
-            Image.new("RGBA", (2048, 2048), "white").save(output)
+            Image.new("RGBA", (1254, 1254), "white").save(output)
             brief = self._brief("Title", "Subtitle")
             report = validate_output(output, manifest={"copy": brief.copy}, brief=brief, asset_hashes={"company_logo": "hash"})
             self.assertIn("manifest_copy", report.failures)
@@ -157,7 +157,7 @@ class LocalizationAndQATests(unittest.TestCase):
     def test_malformed_brief_is_a_qa_failure(self) -> None:
         with TemporaryDirectory() as directory:
             output = Path(directory) / "out.png"
-            Image.new("RGBA", (2048, 2048), "white").save(output)
+            Image.new("RGBA", (1254, 1254), "white").save(output)
             report = validate_output(output, manifest={"rendered_copy": {}}, brief={"copy": {}}, asset_hashes={"company_logo": "hash"})
             self.assertIn("brief_schema", report.failures)
 
@@ -176,7 +176,7 @@ class LocalizationAndQATests(unittest.TestCase):
         with TemporaryDirectory() as directory:
             root = Path(directory)
             output = root / "logo-card-1x1-v01.png"
-            Image.new("RGBA", (2048, 2048), "white").save(output)
+            Image.new("RGBA", (1254, 1254), "white").save(output)
             brief = self._brief("Title", "Subtitle")
             manifest, paths = self._complete_manifest(root, output, brief)
             asset = manifest["assets"][0]
@@ -201,7 +201,7 @@ class LocalizationAndQATests(unittest.TestCase):
         with TemporaryDirectory() as directory:
             root = Path(directory)
             output = root / "logo-card-1x1-v01.png"
-            Image.new("RGBA", (2048, 2048), "white").save(output)
+            Image.new("RGBA", (1254, 1254), "white").save(output)
             brief = self._brief("Title", "Subtitle")
             manifest, paths = self._complete_manifest(root, output, brief)
             baseline = validate_output(output, manifest=manifest, brief=brief, brief_path=paths["brief"], output_root=root, output_type="logo_card")
@@ -214,7 +214,7 @@ class LocalizationAndQATests(unittest.TestCase):
         with TemporaryDirectory() as directory:
             root = Path(directory)
             output = root / "logo-card-1x1-v01.png"
-            Image.new("RGBA", (2048, 2048), "white").save(output)
+            Image.new("RGBA", (1254, 1254), "white").save(output)
             brief = self._brief("Title", "Subtitle")
             manifest, paths = self._complete_manifest(root, output, brief)
             for key, check in (
@@ -238,7 +238,7 @@ class LocalizationAndQATests(unittest.TestCase):
                     paths[key].write_bytes(original)
 
             original_output = output.read_bytes()
-            Image.new("RGBA", (2048, 2048), "black").save(output)
+            Image.new("RGBA", (1254, 1254), "black").save(output)
             report = validate_output(
                 output,
                 manifest=manifest,
@@ -267,7 +267,7 @@ class LocalizationAndQATests(unittest.TestCase):
             root = Path(directory)
             brief = self._brief("Title", "Subtitle")
             output = root / "logo-card-1x1-v01.png"
-            Image.new("RGBA", (2048, 2048), "white").save(output)
+            Image.new("RGBA", (1254, 1254), "white").save(output)
             manifest, paths = self._complete_manifest(root, output, brief)
             output.write_bytes(output.read_bytes()[:-64])
             report = validate_output(
@@ -281,7 +281,7 @@ class LocalizationAndQATests(unittest.TestCase):
             self.assertFalse(report.checks["png_decode"])
 
             palette = root / "palette-v01.png"
-            Image.new("P", (2048, 2048)).save(palette)
+            Image.new("P", (1254, 1254)).save(palette)
             palette_manifest, palette_paths = self._complete_manifest(root, palette, brief)
             report = validate_output(
                 palette,
@@ -298,8 +298,8 @@ class LocalizationAndQATests(unittest.TestCase):
             root = Path(directory)
             output = root / "logo-card-1x1.png"
             other = root / "other-v01.png"
-            Image.new("RGBA", (2048, 2048), "white").save(output)
-            Image.new("RGBA", (2048, 2048), "white").save(other)
+            Image.new("RGBA", (1254, 1254), "white").save(output)
+            Image.new("RGBA", (1254, 1254), "white").save(other)
             brief = self._brief("Title", "Subtitle")
             manifest, paths = self._complete_manifest(root, output, brief)
             report = validate_output(
@@ -323,7 +323,7 @@ class LocalizationAndQATests(unittest.TestCase):
 
             outside = root.parent / "outside-v01.png"
             try:
-                Image.new("RGBA", (2048, 2048), "white").save(outside)
+                Image.new("RGBA", (1254, 1254), "white").save(outside)
                 outside_manifest, outside_paths = self._complete_manifest(root, outside, brief)
                 report = validate_output(
                     outside,
@@ -341,7 +341,7 @@ class LocalizationAndQATests(unittest.TestCase):
         with TemporaryDirectory() as directory:
             root = Path(directory)
             output = root / "logo-card-1x1-v01.png"
-            Image.new("RGBA", (2048, 2048), "white").save(output)
+            Image.new("RGBA", (1254, 1254), "white").save(output)
             brief = self._brief("Title", "Subtitle")
             manifest, paths = self._complete_manifest(root, output, brief, rights_status="unknown")
             report = validate_output(

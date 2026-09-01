@@ -18,6 +18,7 @@ class PipelineTests(unittest.TestCase):
         return find_test_font()
 
     def _asset(self, root: Path, name: str, size: tuple[int, int], color: tuple[int, int, int, int]) -> Path:
+        size = {(2048, 2048): (1254, 1254), (2048, 1024): (1774, 887)}.get(size, size)
         path = root / name
         Image.new("RGBA", size, color).save(path)
         return path
@@ -129,7 +130,7 @@ class PipelineTests(unittest.TestCase):
                 brandloom_cli.main(["asset-add", "--workspace", str(root), "--source", str(source), "--category", category,
                                     "--scope", "project", "--rights", "user_authorized", "--save-confirmed", "--make-default"])
             self._write_ready_brief(root, slug="other")
-            Image.new("RGBA", (2048, 1024), "white").save(root / "base.png")
+            Image.new("RGBA", (1774, 887), "white").save(root / "base.png")
             with self.assertRaises(ValueError):
                 brandloom_cli.main(["compose", "--workspace", str(root), "--type", "logo-card", "--base", str(root / "base.png")])
 
@@ -145,16 +146,16 @@ class PipelineTests(unittest.TestCase):
             output_dir = root / ".brandloom" / "outputs" / "other"
             output_dir.mkdir(parents=True)
             image = output_dir / "logo-card-1x1-v01.png"
-            Image.new("RGBA", (2048, 2048), "white").save(image)
+            Image.new("RGBA", (1254, 1254), "white").save(image)
             template = root / ".brandloom" / "template.json"; template.write_text('{"schema_version":"1.0","canvas":{},"slots":{}}')
-            base = root / ".brandloom" / "base.png"; Image.new("RGBA", (2048, 2048), "white").save(base)
+            base = root / ".brandloom" / "base.png"; Image.new("RGBA", (1254, 1254), "white").save(base)
             logo = root / ".brandloom" / "logo.png"; Image.new("RGBA", (32, 32), "red").save(logo)
             manifest = build_generation_manifest(
                 brief_path=root / ".brandloom" / "brand-brief.json",
                 assets=[{"asset_id": "natural-logo", "category": "company-logo", "scope": "project", "rights_status": "user_authorized", "path": str(logo), "sha256": hashlib.sha256(logo.read_bytes()).hexdigest()}],
                 template_path=template, font_paths={"heading": self._font()}, base_image_path=base,
                 output_path=image, qa_state="INTERNAL_LOGO_QA", rendered_copy={}, output_type="logo-card",
-                host_request={"schema_version":"1.0","backend":"host_builtin_image_tool","output_type":"logo_card","aspect_ratio":"1:1","dimensions":[2048,2048],"prompt":"fixture","reference_assets":[]},
+                host_request={"schema_version":"1.0","backend":"host_builtin_image_tool","output_type":"logo_card","aspect_ratio":"1:1","dimensions":[1254,1254],"prompt":"fixture","reference_assets":[]},
             )
             (output_dir / "generation-manifest-v01.json").write_text(json.dumps(manifest), encoding="utf-8")
             self.assertEqual(brandloom_cli.main(["validate", "--workspace", str(root), "--type", "logo-card"]), 0)
@@ -170,7 +171,7 @@ class PipelineTests(unittest.TestCase):
             (root / ".brandloom" / "qa-state.json").write_text(json.dumps(state), encoding="utf-8")
             output_dir = root / ".brandloom" / "outputs" / "qa"
             output_dir.mkdir(parents=True)
-            Image.new("RGBA", (2048, 2048), "white").save(output_dir / "logo-card-1x1-v01.png")
+            Image.new("RGBA", (1254, 1254), "white").save(output_dir / "logo-card-1x1-v01.png")
             (output_dir / "generation-manifest-v01.json").write_text(json.dumps({"output_type": "logo-card", "output": {"path": "logo-card-1x1-v01.png"}}), encoding="utf-8")
             self.assertEqual(brandloom_cli.main(["validate", "--workspace", str(root), "--type", "logo-card"]), 2)
 
@@ -184,7 +185,7 @@ class PipelineTests(unittest.TestCase):
             state = self._ready_state(); state["state"] = "LOGO_USER_REVIEW"
             (root / ".brandloom" / "qa-state.json").write_text(json.dumps(state), encoding="utf-8")
             output_dir = root / ".brandloom" / "outputs" / "deliver-ip"; output_dir.mkdir(parents=True)
-            Image.new("RGBA", (2048, 2048), "white").save(output_dir / "logo-card-1x1-v01.png")
+            Image.new("RGBA", (1254, 1254), "white").save(output_dir / "logo-card-1x1-v01.png")
             manifest = {"output_type": "logo-card", "output": {"path": "logo-card-1x1-v01.png"}, "rendered_copy": {},
                         "assets": [{"asset_id": "natural-logo", "category": "company-logo", "rights_status": "user_authorized", "sha256": "fixture-logo-hash"}]}
             (output_dir / "generation-manifest-v01.json").write_text(json.dumps(manifest), encoding="utf-8")
@@ -200,7 +201,7 @@ class PipelineTests(unittest.TestCase):
             state = self._ready_state(); state["state"] = "LOGO_USER_REVIEW"
             (root / ".brandloom" / "qa-state.json").write_text(json.dumps(state), encoding="utf-8")
             output_dir = root / ".brandloom" / "outputs" / "deliver-rights"; output_dir.mkdir(parents=True)
-            Image.new("RGBA", (2048, 2048), "white").save(output_dir / "logo-card-1x1-v01.png")
+            Image.new("RGBA", (1254, 1254), "white").save(output_dir / "logo-card-1x1-v01.png")
             manifest = {"output_type": "logo-card", "output": {"path": "logo-card-1x1-v01.png"}, "rendered_copy": {},
                         "assets": [{"asset_id": "natural-logo", "category": "company-logo", "rights_status": "user_authorized", "sha256": "fixture-logo-hash"}]}
             (output_dir / "generation-manifest-v01.json").write_text(json.dumps(manifest), encoding="utf-8")
@@ -354,7 +355,7 @@ class PipelineTests(unittest.TestCase):
                 brandloom_cli.main(["asset-add", "--workspace", str(root), "--source", str(source), "--category", category,
                                     "--scope", "project", "--rights", "user_authorized", "--save-confirmed", "--make-default"])
             self._write_ready_brief(root, slug="raw")
-            Image.new("RGBA", (2048, 2048), "white").save(root / "base.png")
+            Image.new("RGBA", (1254, 1254), "white").save(root / "base.png")
             raw_return = "base.png"
             self.assertEqual(brandloom_cli.main(["compose", "--workspace", str(root), "--type", "logo-card",
                                                  "--base", raw_return]), 0)

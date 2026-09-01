@@ -17,6 +17,7 @@ from tests.font_test_utils import find_test_font
 
 class Task2ContractTests(unittest.TestCase):
     def _asset(self, root: Path, name: str, size: tuple[int, int], color):
+        size = {(2048, 2048): (1254, 1254), (2048, 1024): (1774, 887)}.get(size, size)
         path = root / name
         Image.new("RGBA", size, color).save(path)
         return path
@@ -30,8 +31,8 @@ class Task2ContractTests(unittest.TestCase):
     def _files(self, root: Path):
         brief = root / "brief.json"; brief.write_text("{}")
         template = root / "template.json"; template.write_text("{}")
-        base = root / "base.png"; Image.new("RGB", (2048, 2048), "white").save(base)
-        output = root / "logo-card-1x1-v01.png"; Image.new("RGB", (2048, 2048), "white").save(output)
+        base = root / "base.png"; Image.new("RGB", (1254, 1254), "white").save(base)
+        output = root / "logo-card-1x1-v01.png"; Image.new("RGB", (1254, 1254), "white").save(output)
         font = root / "font.ttf"; font.write_bytes(b"font")
         return brief, template, base, output, font
 
@@ -42,13 +43,13 @@ class Task2ContractTests(unittest.TestCase):
             brief_path=brief, assets=[{"asset_id": "logo", "category": "company-logo", "scope": "project", "rights_status": "user_authorized", "path": str(logo), "expected_sha256": hashlib.sha256(logo.read_bytes()).hexdigest()}],
             template_path=template, font_paths={"heading": font}, base_image_path=base,
             output_path=output, qa_state="INTERNAL_LOGO_QA", rendered_copy={}, output_type="logo-card",
-            host_request={"schema_version": "1.0", "backend": "host_builtin_image_tool", "output_type": "logo_card", "aspect_ratio": "1:1", "dimensions": [2048, 2048], "prompt": "fixture", "reference_assets": []},
+            host_request={"schema_version": "1.0", "backend": "host_builtin_image_tool", "output_type": "logo_card", "aspect_ratio": "1:1", "dimensions": [1254, 1254], "prompt": "fixture", "reference_assets": []},
         )
 
     def test_missing_each_production_manifest_section_fails_closed(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp); manifest = self._manifest(root)
-            baseline_report = validate_output(root / "logo-card-1x1-v01.png", expected_dimensions=(2048, 2048), manifest=manifest, manifest_path=root / "generation-manifest-v01.json", brief_path=root / "brief.json")
+            baseline_report = validate_output(root / "logo-card-1x1-v01.png", expected_dimensions=(1254, 1254), manifest=manifest, manifest_path=root / "generation-manifest-v01.json", brief_path=root / "brief.json")
             self.assertTrue(baseline_report.passed, baseline_report.failures)
             checks = {
                 "brief": "manifest_brief", "assets": "manifest_assets", "template": "manifest_template",
@@ -57,17 +58,17 @@ class Task2ContractTests(unittest.TestCase):
             }
             for section in checks:
                 broken = dict(manifest); broken.pop(section, None)
-                report = validate_output(root / "logo-card-1x1-v01.png", expected_dimensions=(2048, 2048), manifest=broken, manifest_path=root / "generation-manifest-v01.json", brief_path=root / "brief.json")
+                report = validate_output(root / "logo-card-1x1-v01.png", expected_dimensions=(1254, 1254), manifest=broken, manifest_path=root / "generation-manifest-v01.json", brief_path=root / "brief.json")
                 self.assertFalse(report.checks[checks[section]], section)
             broken_host = dict(manifest); broken_host["host_request"] = dict(manifest["host_request"]); broken_host["host_request"].pop("reference_assets")
-            report = validate_output(root / "logo-card-1x1-v01.png", expected_dimensions=(2048, 2048), manifest=broken_host, manifest_path=root / "generation-manifest-v01.json", brief_path=root / "brief.json")
+            report = validate_output(root / "logo-card-1x1-v01.png", expected_dimensions=(1254, 1254), manifest=broken_host, manifest_path=root / "generation-manifest-v01.json", brief_path=root / "brief.json")
             self.assertFalse(report.checks["manifest_host_request"])
 
     def test_host_request_missing_canonical_fields_fails(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp); manifest = self._manifest(root)
             manifest["host_request"] = {"backend": "host_builtin_image_tool", "reference_assets": []}
-            report = validate_output(root / "logo-card-1x1-v01.png", expected_dimensions=(2048, 2048), manifest=manifest, manifest_path=root / "generation-manifest-v01.json", brief_path=root / "brief.json")
+            report = validate_output(root / "logo-card-1x1-v01.png", expected_dimensions=(1254, 1254), manifest=manifest, manifest_path=root / "generation-manifest-v01.json", brief_path=root / "brief.json")
             self.assertFalse(report.checks["manifest_host_request"])
 
     def test_validate_persists_candidate_manifest_identity_before_delivery(self):
