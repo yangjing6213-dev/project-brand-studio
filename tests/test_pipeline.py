@@ -154,6 +154,7 @@ class PipelineTests(unittest.TestCase):
                 assets=[{"asset_id": "natural-logo", "category": "company-logo", "scope": "project", "rights_status": "user_authorized", "path": str(logo), "sha256": hashlib.sha256(logo.read_bytes()).hexdigest()}],
                 template_path=template, font_paths={"heading": self._font()}, base_image_path=base,
                 output_path=image, qa_state="INTERNAL_LOGO_QA", rendered_copy={}, output_type="logo-card",
+                host_request={"schema_version":"1.0","backend":"host_builtin_image_tool","output_type":"logo_card","aspect_ratio":"1:1","dimensions":[2048,2048],"prompt":"fixture","reference_assets":[]},
             )
             (output_dir / "generation-manifest-v01.json").write_text(json.dumps(manifest), encoding="utf-8")
             self.assertEqual(brandloom_cli.main(["validate", "--workspace", str(root), "--type", "logo-card"]), 0)

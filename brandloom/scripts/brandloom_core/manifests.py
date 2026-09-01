@@ -95,7 +95,7 @@ def build_generation_manifest(
         "output": _entry(output_path),
         "rendered_copy": dict(rendered_copy or {}),
         "output_type": str(output_type or ""),
-        "host_request": dict(host_request or {"schema_version": "1.0", "backend": "host_builtin_image_tool", "reference_assets": []}),
+        "host_request": dict(host_request) if host_request is not None else None,
     }
     if base_prompt is not None:
         manifest["base_prompt"] = base_prompt

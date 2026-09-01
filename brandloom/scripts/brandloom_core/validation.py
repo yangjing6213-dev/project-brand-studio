@@ -5,6 +5,7 @@ from __future__ import annotations
 from copy import deepcopy
 from dataclasses import dataclass
 import hashlib
+import json
 from io import BytesIO
 import re
 from pathlib import Path
@@ -181,6 +182,37 @@ def _entry_integrity(
     return _sha256(path) == str(digest).lower()
 
 
+def validate_accepted_logo_evidence(evidence: object, *, expected_slug: str | None = None) -> bool:
+    if not isinstance(evidence, Mapping):
+        return False
+    required = ("path", "sha256", "manifest_path", "manifest_sha256", "manifest_output_sha256", "output_type", "slug")
+    if any(not isinstance(evidence.get(key), str) or not evidence[key] for key in required):
+        return False
+    output = Path(str(evidence["path"])); manifest_path = Path(str(evidence["manifest_path"]))
+    if not output.is_absolute() or not manifest_path.is_absolute() or output != output.resolve() or manifest_path != manifest_path.resolve():
+        return False
+    if expected_slug is not None and evidence.get("slug") != expected_slug:
+        return False
+    if str(evidence["output_type"]).replace("-", "_") != "logo_card":
+        return False
+    if not _valid_sha256(evidence["sha256"]) or not _valid_sha256(evidence["manifest_sha256"]) or not _valid_sha256(evidence["manifest_output_sha256"]):
+        return False
+    if not output.is_file() or not manifest_path.is_file():
+        return False
+    if _sha256(output) != str(evidence["sha256"]).lower() or _sha256(manifest_path) != str(evidence["manifest_sha256"]).lower():
+        return False
+    try:
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    if not isinstance(payload, Mapping) or str(payload.get("output_type", "")).replace("-", "_") != "logo_card":
+        return False
+    entry = payload.get("output")
+    recorded = _recorded_path(entry.get("path"), manifest_path.parent) if isinstance(entry, Mapping) else None
+    digest = entry.get("sha256") if isinstance(entry, Mapping) else None
+    return recorded == output and _valid_sha256(digest) and str(digest).lower() == str(evidence["manifest_output_sha256"]).lower() == str(evidence["sha256"]).lower()
+
+
 def _asset_integrity(entry: object, *, base: Path | None) -> bool:
     if not isinstance(entry, Mapping):
         return False
@@ -201,10 +233,17 @@ def _asset_integrity(entry: object, *, base: Path | None) -> bool:
     return not digest or (isinstance(digest, str) and digest.lower() == str(observed).lower())
 
 
-def _host_request_integrity(value: object, *, base: Path | None, require_accepted_logo: bool = False) -> bool:
+def _host_request_integrity(value: object, *, base: Path | None, require_accepted_logo: bool = False, expected_output_type: str | None = None, expected_dimensions: tuple[int, int] | None = None) -> bool:
     if value is None:
         return False
-    if not isinstance(value, Mapping) or value.get("backend") != "host_builtin_image_tool":
+    if not isinstance(value, Mapping) or value.get("schema_version") != "1.0" or value.get("backend") != "host_builtin_image_tool":
+        return False
+    if expected_output_type and str(value.get("output_type", "")).replace("-", "_") != expected_output_type:
+        return False
+    ratio = "1:1" if expected_dimensions == (2048, 2048) else "2:1" if expected_dimensions == (2048, 1024) else None
+    if not isinstance(value.get("output_type"), str) or not isinstance(value.get("aspect_ratio"), str) or (ratio and value.get("aspect_ratio") != ratio):
+        return False
+    if not isinstance(value.get("dimensions"), list) or tuple(value["dimensions"]) != expected_dimensions or not isinstance(value.get("prompt"), str) or not value["prompt"]:
         return False
     references = value.get("reference_assets", [])
     if not isinstance(references, list):
@@ -212,10 +251,11 @@ def _host_request_integrity(value: object, *, base: Path | None, require_accepte
     for entry in references:
         if not isinstance(entry, Mapping):
             return False
-        path = _recorded_path(entry.get("path"), base)
+        raw_path = entry.get("path")
+        path = _recorded_path(raw_path, base)
         digest = entry.get("sha256")
         if (
-            path is None
+            path is None or not isinstance(raw_path, str) or not Path(raw_path).is_absolute() or Path(raw_path) != path
             or not path.is_file()
             or not _valid_sha256(digest)
             or _sha256(path) != str(digest).lower()
@@ -228,7 +268,7 @@ def _host_request_integrity(value: object, *, base: Path | None, require_accepte
     accepted = value.get("accepted_logo")
     if require_accepted_logo and accepted is None:
         return False
-    if accepted is not None and not _entry_integrity(accepted, base=base):
+    if accepted is not None and not validate_accepted_logo_evidence(accepted):
         return False
     return True
 
@@ -319,6 +359,8 @@ def validate_output(
     checks["manifest_host_request"] = _host_request_integrity(
         payload.get("host_request"), base=manifest_base,
         require_accepted_logo=str(requested_type).replace("-", "_") == "cover",
+        expected_output_type=expected_type,
+        expected_dimensions=expected_dimensions,
     )
     output_entry = payload.get("output")
     recorded_output = _recorded_path(output_entry.get("path"), manifest_base) if isinstance(output_entry, Mapping) else None

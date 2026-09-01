@@ -68,6 +68,7 @@ class LocalizationAndQATests(unittest.TestCase):
             qa_state="INTERNAL_LOGO_QA",
             rendered_copy=brief.copy,
             output_type="logo-card",
+            host_request={"schema_version": "1.0", "backend": "host_builtin_image_tool", "output_type": "logo_card", "aspect_ratio": "1:1", "dimensions": [2048, 2048], "prompt": "fixture", "reference_assets": []},
         )
         return manifest, {"brief": brief_path, "template": template, "base": base, "logo": logo, "font": font}
 

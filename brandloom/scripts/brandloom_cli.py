@@ -29,7 +29,7 @@ try:
     from .brandloom_core.renderer import render_brand_asset, rendered_copy_values
     from .brandloom_core.state_machine import advance, assert_generation_ready, confirm, invalidate_from
     from .brandloom_core.prompt_builder import build_host_request, validate_generated_path
-    from .brandloom_core.validation import validate_output
+    from .brandloom_core.validation import validate_output, validate_accepted_logo_evidence
 except ImportError:  # pragma: no cover - supports direct script execution
     from brandloom.scripts.brandloom_core.asset_library import list_assets, register_asset, resolve_asset
     from brandloom.scripts.brandloom_core.fonts import FontNotFoundError, load_font_profiles, resolve_font
@@ -40,7 +40,7 @@ except ImportError:  # pragma: no cover - supports direct script execution
     from brandloom.scripts.brandloom_core.renderer import render_brand_asset, rendered_copy_values
     from brandloom.scripts.brandloom_core.state_machine import advance, assert_generation_ready, confirm, invalidate_from
     from brandloom.scripts.brandloom_core.prompt_builder import build_host_request, validate_generated_path
-    from brandloom.scripts.brandloom_core.validation import validate_output
+    from brandloom.scripts.brandloom_core.validation import validate_output, validate_accepted_logo_evidence
 
 
 def _json_write(path: Path, data: Any) -> None:
@@ -135,8 +135,7 @@ def _load_session(workspace: Path) -> QASession:
     accepted_raw = payload.get("accepted_logo")
     accepted_logo = None
     if isinstance(accepted_raw, dict):
-        if all(isinstance(accepted_raw.get(key), str) and accepted_raw.get(key) for key in ("path", "sha256", "manifest_path")):
-            accepted_logo = {key: str(accepted_raw[key]) for key in ("path", "sha256", "manifest_path")}
+        accepted_logo = dict(accepted_raw)
     return QASession(
         schema_version=str(payload.get("schema_version", "1.0")),
         session_id=str(payload.get("session_id", "cli")),
@@ -271,20 +270,10 @@ def _compose(args: argparse.Namespace) -> int:
     accepted_logo_evidence = None
     if args.type == "cover":
         accepted_logo_evidence = session.accepted_logo
-        if not isinstance(accepted_logo_evidence, dict):
+        if not validate_accepted_logo_evidence(accepted_logo_evidence):
             raise ValueError("cover composition requires accepted logo evidence")
         accepted_logo_path = Path(str(accepted_logo_evidence.get("path", ""))).resolve()
-        accepted_manifest_path = Path(str(accepted_logo_evidence.get("manifest_path", ""))).resolve()
-        digest = str(accepted_logo_evidence.get("sha256", ""))
-        if not accepted_logo_path.is_file() or not accepted_manifest_path.is_file() or len(digest) != 64:
-            raise ValueError("accepted logo evidence is incomplete")
-        if hashlib.sha256(accepted_logo_path.read_bytes()).hexdigest() != digest.lower():
-            raise ValueError("accepted logo output changed after review")
-        accepted_manifest = json.loads(accepted_manifest_path.read_text(encoding="utf-8"))
-        if not isinstance(accepted_manifest, dict) or str(accepted_manifest.get("output_type", "")).replace("-", "_") != "logo_card":
-            raise ValueError("accepted logo manifest is invalid")
-        if _manifest_output_path(accepted_manifest_path, accepted_manifest) != accepted_logo_path:
-            raise ValueError("accepted logo evidence does not match manifest")
+        accepted_manifest_path = Path(str(accepted_logo_evidence["manifest_path"]))
     host_request = build_host_request(
         brief,
         prompt_type,
@@ -399,7 +388,19 @@ def _validate(args: argparse.Namespace) -> int:
         return 2
     if not report.passed:
         return 2
-    _write_session(project_root(workspace) / "qa-state.json", advance(session, target_state))
+    if args.type == "logo-card":
+        slug = safe_project_slug(args.slug) if args.slug else safe_project_slug(_load_brief(workspace).project.get("slug", "project"))
+        directory = project_output_dir(workspace, slug)
+        manifest_path, payload = _latest_manifest(directory, "logo-card")
+        output_path = _manifest_output_path(manifest_path, payload)
+        output_entry = payload.get("output")
+        evidence = {"path": str(output_path.resolve()), "sha256": hashlib.sha256(output_path.read_bytes()).hexdigest(), "manifest_path": str(manifest_path.resolve()), "manifest_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(), "manifest_output_sha256": str(output_entry.get("sha256", "")) if isinstance(output_entry, dict) else "", "output_type": str(payload.get("output_type", "")), "slug": slug}
+        if not validate_accepted_logo_evidence(evidence, expected_slug=slug):
+            return 2
+        session = replace(advance(session, target_state), accepted_logo=evidence)
+    else:
+        session = advance(session, target_state)
+    _write_session(project_root(workspace) / "qa-state.json", session)
     return 0
 
 
@@ -423,13 +424,9 @@ def _deliver(args: argparse.Namespace) -> int:
         return 2
     next_session = advance(session, target_state)
     if args.type == "logo-card":
-        directory = project_output_dir(workspace, safe_project_slug(_load_brief(workspace).project.get("slug", "project")))
-        manifest_path, payload = _latest_manifest(directory, "logo-card")
-        output_path = _manifest_output_path(manifest_path, payload)
-        if not output_path.is_file():
+        expected_slug = safe_project_slug(args.slug) if args.slug else None
+        if not validate_accepted_logo_evidence(session.accepted_logo, expected_slug=expected_slug):
             return 2
-        evidence = {"path": str(output_path.resolve()), "sha256": hashlib.sha256(output_path.read_bytes()).hexdigest(), "manifest_path": str(manifest_path.resolve())}
-        next_session = replace(next_session, accepted_logo=evidence)
     _write_session(project_root(workspace) / "qa-state.json", next_session)
     return 0
 
