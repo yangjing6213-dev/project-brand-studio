@@ -18,7 +18,6 @@ class PipelineTests(unittest.TestCase):
         return find_test_font()
 
     def _asset(self, root: Path, name: str, size: tuple[int, int], color: tuple[int, int, int, int]) -> Path:
-        size = {(2048, 2048): (1254, 1254), (2048, 1024): (1774, 887)}.get(size, size)
         path = root / name
         Image.new("RGBA", size, color).save(path)
         return path
@@ -78,7 +77,7 @@ class PipelineTests(unittest.TestCase):
                 "--rights", "user_authorized", "--save-confirmed", "--make-default",
             ]), 0)
             self._write_ready_brief(root)
-            base = self._asset(root, "base.png", (2048, 2048), (245, 245, 245, 255))
+            base = self._asset(root, "base.png", (1254, 1254), (245, 245, 245, 255))
             self.assertEqual(brandloom_cli.main([
                 "compose", "--workspace", str(root), "--type", "logo-card",
                 "--base", str(base),
@@ -97,7 +96,7 @@ class PipelineTests(unittest.TestCase):
                 "deliver", "--workspace", str(root), "--type", "logo-card", "--reviewed",
             ]), 0)
             self.assertEqual(json.loads((root / ".brandloom" / "qa-state.json").read_text())["state"], "GENERATE_COVER_BASE")
-            cover_base = self._asset(root, "cover-base.png", (2048, 1024), (235, 235, 235, 255))
+            cover_base = self._asset(root, "cover-base.png", (1774, 887), (235, 235, 235, 255))
             self.assertEqual(brandloom_cli.main([
                 "compose", "--workspace", str(root), "--type", "cover", "--base", str(cover_base),
             ]), 0)
@@ -270,7 +269,7 @@ class PipelineTests(unittest.TestCase):
                     "--save-confirmed", "--make-default",
                 ])
             self._write_ready_brief(root)
-            cover = self._asset(root, "cover.png", (2048, 1024), (255, 255, 255, 255))
+            cover = self._asset(root, "cover.png", (1774, 887), (255, 255, 255, 255))
             with self.assertRaises(ValueError):
                 brandloom_cli.main([
                     "compose", "--workspace", str(root), "--type", "cover", "--base", str(cover),
@@ -290,7 +289,7 @@ class PipelineTests(unittest.TestCase):
                     "--save-confirmed", "--make-default",
                 ])
             self._write_ready_brief(root, slug="../escaped")
-            base = self._asset(root, "base.png", (2048, 2048), (255, 255, 255, 255))
+            base = self._asset(root, "base.png", (1254, 1254), (255, 255, 255, 255))
             with self.assertRaises(ValueError):
                 brandloom_cli.main([
                     "compose", "--workspace", str(root), "--type", "logo-card", "--base", str(base),
@@ -318,7 +317,7 @@ class PipelineTests(unittest.TestCase):
             logo_entry = next(entry for entry in manifest["assets"] if entry["category"] == "company-logo")
             stored = root / ".brandloom" / logo_entry["relative_path"]
             Image.new("RGBA", (40, 20), (250, 0, 0, 255)).save(stored)
-            base = self._asset(root, "base.png", (2048, 2048), (255, 255, 255, 255))
+            base = self._asset(root, "base.png", (1254, 1254), (255, 255, 255, 255))
             with self.assertRaises(ValueError):
                 brandloom_cli.main([
                     "compose", "--workspace", str(root), "--type", "logo-card", "--base", str(base),
@@ -335,7 +334,7 @@ class PipelineTests(unittest.TestCase):
                 payload = json.loads((root / ".brandloom" / "qa-state.json").read_text())
                 payload["confirmed"]["project_mark"] = True
                 (root / ".brandloom" / "qa-state.json").write_text(json.dumps(payload), encoding="utf-8")
-                base = self._asset(root, "base.png", (2048, 2048), (255, 255, 255, 255))
+                base = self._asset(root, "base.png", (1254, 1254), (255, 255, 255, 255))
                 self.assertEqual(brandloom_cli.main([
                     "compose", "--workspace", str(root), "--type", "logo-card", "--base", str(base),
                 ]), 0)

@@ -31,6 +31,10 @@ class Task5DimensionContractTests(unittest.TestCase):
             Image.new("RGB", (2048, 2048), "white").save(old)
             with self.assertRaises(ValueError):
                 validate_generated_path(old, expected="logo_card")
+            old_cover = Path(directory) / "old-cover.png"
+            Image.new("RGB", (2048, 1024), "white").save(old_cover)
+            with self.assertRaises(ValueError):
+                validate_generated_path(old_cover, expected="cover")
 
 
 if __name__ == "__main__":
