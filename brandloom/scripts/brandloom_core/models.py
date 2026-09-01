@@ -75,6 +75,7 @@ class QASession:
     confirmed: dict[str, object] = field(default_factory=dict)
     invalidated: tuple[str, ...] = ()
     accepted_logo: dict[str, object] | None = None
+    logo_review_candidate: dict[str, object] | None = None
     generation_backend: str = "host_builtin_image_tool"
     updated_at: str = ""
 

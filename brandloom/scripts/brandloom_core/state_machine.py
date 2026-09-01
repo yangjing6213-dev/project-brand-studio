@@ -138,7 +138,7 @@ def invalidate_from(session: QASession, key: str) -> QASession:
         raise ValueError(f"unknown QA key: {key}") from exc
     confirmed = {name: value for name, value in session.confirmed.items() if name not in keys}
     invalidated = tuple(dict.fromkeys((*session.invalidated, *keys)))
-    return replace(session, state=target, confirmed=confirmed, invalidated=invalidated, accepted_logo=None)
+    return replace(session, state=target, confirmed=confirmed, invalidated=invalidated, accepted_logo=None, logo_review_candidate=None)
 
 
 def assert_generation_ready(session: QASession) -> None:

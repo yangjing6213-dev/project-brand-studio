@@ -70,8 +70,9 @@ class Task2ContractTests(unittest.TestCase):
             brandloom_cli.main(["compose", "--workspace", str(root), "--type", "logo-card", "--base", str(base)])
             self.assertEqual(brandloom_cli.main(["validate", "--workspace", str(root), "--type", "logo-card"]), 0)
             session = json.loads((root / ".brandloom" / "qa-state.json").read_text())
-            self.assertIsInstance(session.get("accepted_logo"), dict)
-            self.assertIn("manifest_sha256", session["accepted_logo"])
+            self.assertIsNone(session.get("accepted_logo"))
+            self.assertIsInstance(session.get("logo_review_candidate"), dict)
+            self.assertIn("manifest_sha256", session["logo_review_candidate"])
 
     def test_later_unreviewed_manifest_and_slug_mismatch_cannot_replace_candidate(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -95,8 +96,10 @@ class Task2ContractTests(unittest.TestCase):
             self.assertEqual(path.name, "generation-manifest-v100.json")
 
     def test_invalidation_clears_accepted_logo_evidence(self):
-        session = QASession("1.0", "s", TaskMode.NEW, QAState.GENERATION_READY, "p", accepted_logo={"path": "x", "sha256": "a"}, confirmed={"style": True})
-        self.assertIsNone(invalidate_from(session, "style").accepted_logo)
+        session = QASession("1.0", "s", TaskMode.NEW, QAState.GENERATION_READY, "p", accepted_logo={"path": "x", "sha256": "a"}, logo_review_candidate={"path": "y"}, confirmed={"style": True})
+        changed = invalidate_from(session, "style")
+        self.assertIsNone(changed.accepted_logo)
+        self.assertIsNone(changed.logo_review_candidate)
 
     def test_malformed_project_mark_selection_hard_stops(self):
         with tempfile.TemporaryDirectory() as temp:

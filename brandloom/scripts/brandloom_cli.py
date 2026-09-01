@@ -136,6 +136,8 @@ def _load_session(workspace: Path) -> QASession:
     accepted_logo = None
     if isinstance(accepted_raw, dict):
         accepted_logo = dict(accepted_raw)
+    candidate_raw = payload.get("logo_review_candidate")
+    candidate = dict(candidate_raw) if isinstance(candidate_raw, dict) else None
     return QASession(
         schema_version=str(payload.get("schema_version", "1.0")),
         session_id=str(payload.get("session_id", "cli")),
@@ -147,6 +149,7 @@ def _load_session(workspace: Path) -> QASession:
         invalidated=tuple(payload.get("invalidated", ())),
         generation_backend=str(payload.get("generation_backend", "host_builtin_image_tool")),
         accepted_logo=accepted_logo,
+        logo_review_candidate=candidate,
         updated_at=str(payload.get("updated_at", "")),
     )
 
@@ -339,7 +342,7 @@ def _compose(args: argparse.Namespace) -> int:
     )
     write_manifest(_versioned_manifest(output_dir), manifest)
     if args.type == "logo-card":
-        next_session = replace(next_session, accepted_logo=None)
+        next_session = replace(next_session, accepted_logo=None, logo_review_candidate=None)
     _write_session(root / "qa-state.json", next_session)
     print(result.output_path)
     return 0
@@ -396,7 +399,10 @@ def _validate(args: argparse.Namespace) -> int:
     if not report.passed:
         return 2
     if args.type == "logo-card":
-        slug = safe_project_slug(args.slug) if args.slug else safe_project_slug(_load_brief(workspace).project.get("slug", "project"))
+        brief_slug = safe_project_slug(_load_brief(workspace).project.get("slug", "project"))
+        if args.slug and safe_project_slug(args.slug) != brief_slug:
+            return 2
+        slug = brief_slug
         directory = project_output_dir(workspace, slug)
         manifest_path, payload = _latest_manifest(directory, "logo-card")
         output_path = _manifest_output_path(manifest_path, payload)
@@ -404,7 +410,7 @@ def _validate(args: argparse.Namespace) -> int:
         evidence = {"path": str(output_path.resolve()), "sha256": hashlib.sha256(output_path.read_bytes()).hexdigest(), "manifest_path": str(manifest_path.resolve()), "manifest_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(), "manifest_output_sha256": str(output_entry.get("sha256", "")) if isinstance(output_entry, dict) else "", "output_type": str(payload.get("output_type", "")), "slug": slug}
         if not validate_accepted_logo_evidence(evidence, expected_slug=slug):
             return 2
-        session = replace(advance(session, target_state), accepted_logo=evidence)
+        session = replace(advance(session, target_state), accepted_logo=None, logo_review_candidate=evidence)
     else:
         session = advance(session, target_state)
     _write_session(project_root(workspace) / "qa-state.json", session)
@@ -424,9 +430,9 @@ def _deliver(args: argparse.Namespace) -> int:
     if session.state is not expected_state:
         return 2
     if args.type == "logo-card":
-        if not validate_accepted_logo_evidence(session.accepted_logo, expected_slug=safe_project_slug(args.slug) if args.slug else None):
+        if not validate_accepted_logo_evidence(session.logo_review_candidate, expected_slug=safe_project_slug(args.slug) if args.slug else None):
             return 2
-        evidence = session.accepted_logo
+        evidence = session.logo_review_candidate
         assert isinstance(evidence, dict)
         manifest_path = Path(str(evidence["manifest_path"]))
         output_path = Path(str(evidence["path"]))
@@ -445,6 +451,8 @@ def _deliver(args: argparse.Namespace) -> int:
         if not report.passed:
             return 2
     next_session = advance(session, target_state)
+    if args.type == "logo-card":
+        next_session = replace(next_session, accepted_logo=evidence, logo_review_candidate=None)
     _write_session(project_root(workspace) / "qa-state.json", next_session)
     return 0
 
