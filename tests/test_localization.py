@@ -191,6 +191,19 @@ class LocalizationAndQATests(unittest.TestCase):
             self.assertTrue(report.passed, report.failures)
             self.assertTrue(report.checks["company_logo_hash"])
 
+    def test_complete_manifest_output_collision_is_only_new_failure(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            output = root / "logo-card-1x1-v01.png"
+            Image.new("RGBA", (2048, 2048), "white").save(output)
+            brief = self._brief("Title", "Subtitle")
+            manifest, paths = self._complete_manifest(root, output, brief)
+            baseline = validate_output(output, manifest=manifest, brief=brief, brief_path=paths["brief"], output_root=root, output_type="logo_card")
+            self.assertTrue(baseline.passed, baseline.failures)
+            collided = validate_output(output, manifest=manifest, brief=brief, brief_path=paths["brief"], output_root=root, output_type="logo_card", existing_output_paths=[output])
+            self.assertFalse(collided.passed)
+            self.assertEqual(collided.failures, ("output_collision",))
+
     def test_manifest_integrity_rehashes_every_recorded_input_and_output(self) -> None:
         with TemporaryDirectory() as directory:
             root = Path(directory)

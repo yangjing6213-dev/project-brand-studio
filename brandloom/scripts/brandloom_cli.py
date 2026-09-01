@@ -132,18 +132,19 @@ def _load_brief(workspace: Path) -> BrandBrief:
 def _load_session(workspace: Path) -> QASession:
     path = project_root(workspace) / "qa-state.json"
     payload = json.loads(path.read_text(encoding="utf-8"))
+    project_slug = str(payload.get("project_slug", "project"))
     accepted_raw = payload.get("accepted_logo")
     accepted_logo = None
-    if isinstance(accepted_raw, dict):
+    if isinstance(accepted_raw, dict) and validate_accepted_logo_evidence(accepted_raw):
         accepted_logo = dict(accepted_raw)
     candidate_raw = payload.get("logo_review_candidate")
-    candidate = dict(candidate_raw) if isinstance(candidate_raw, dict) else None
+    candidate = dict(candidate_raw) if isinstance(candidate_raw, dict) and validate_accepted_logo_evidence(candidate_raw) else None
     return QASession(
         schema_version=str(payload.get("schema_version", "1.0")),
         session_id=str(payload.get("session_id", "cli")),
         mode=TaskMode(payload.get("mode", TaskMode.NEW.value)),
         state=QAState(payload.get("state", QAState.INTAKE.value)),
-        project_slug=str(payload.get("project_slug", "project")),
+        project_slug=project_slug,
         source_refs=tuple(payload.get("source_refs", ())),
         confirmed=dict(payload.get("confirmed", {})),
         invalidated=tuple(payload.get("invalidated", ())),
