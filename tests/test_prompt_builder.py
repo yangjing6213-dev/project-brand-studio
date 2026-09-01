@@ -118,6 +118,17 @@ class PromptBuilderTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 validate_generated_path(wrong)
 
+    def test_custom_dimensions_require_explicit_tuple_revalidation(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            custom = root / "custom.png"
+            Image.new("RGB", (1000, 500), "white").save(custom)
+            # The local template/renderer API may opt into a custom canvas only
+            # when its exact dimensions are supplied for revalidation.
+            self.assertEqual(validate_generated_path(custom, expected=(1000, 500)), (1000, 500))
+            with self.assertRaises(ValueError):
+                validate_generated_path(custom)
+
     def test_structured_host_request_exposes_authorized_builtin_ip_references(self) -> None:
         brief = self._brief()
         brief = BrandBrief(

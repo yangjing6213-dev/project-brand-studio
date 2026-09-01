@@ -236,7 +236,10 @@ def validate_generated_path(path: Path, expected=None) -> tuple[int, int]:
             dimensions = image.size
     except (UnidentifiedImageError, OSError) as exc:
         raise ValueError(f"returned path is not a readable image: {path}") from exc
-    if dimensions not in {spec[1] for spec in _OUTPUT_SPECS.values()}:
+    explicit_dimensions = None
+    if expected is not None and not isinstance(expected, str):
+        explicit_dimensions = validate_custom_dimensions(expected)
+    if dimensions not in {spec[1] for spec in _OUTPUT_SPECS.values()} and dimensions != explicit_dimensions:
         raise ValueError(f"unsupported generated dimensions: {dimensions}")
     if expected is not None:
         if isinstance(expected, str):
@@ -245,7 +248,23 @@ def validate_generated_path(path: Path, expected=None) -> tuple[int, int]:
             except KeyError as exc:
                 raise ValueError(f"unsupported expected output type: {expected}") from exc
         else:
-            expected_dimensions = tuple(expected)
+            expected_dimensions = explicit_dimensions
         if dimensions != expected_dimensions:
             raise ValueError(f"generated dimensions {dimensions} do not match expected {expected_dimensions}")
     return dimensions
+
+
+def validate_custom_dimensions(value) -> tuple[int, int]:
+    """Validate an explicit local template canvas dimension pair.
+
+    Custom canvases are an offline renderer/template escape hatch.  They are
+    never inferred for a host request; callers must pass the exact pair again
+    when validating the returned file.
+    """
+    try:
+        dimensions = tuple(value)
+    except TypeError as exc:
+        raise ValueError("custom dimensions must contain exactly two integers") from exc
+    if len(dimensions) != 2 or any(type(item) is not int or item <= 0 for item in dimensions):
+        raise ValueError("custom dimensions must contain exactly two positive integers")
+    return dimensions  # type: ignore[return-value]

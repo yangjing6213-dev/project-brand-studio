@@ -61,7 +61,9 @@ class RendererTests(unittest.TestCase):
     def test_cover_dimensions(self) -> None:
         with TemporaryDirectory() as directory:
             root = Path(directory)
-            base, logo = self._fixtures(root)
+            _square_base, logo = self._fixtures(root)
+            base = root / "cover-base.png"
+            Image.new("RGBA", (1774, 887), (255, 255, 255, 255)).save(base)
             cover = render_brand_asset(
                 Path("brandloom/templates/cover-2x1.json"),
                 self._brief(),
@@ -71,6 +73,42 @@ class RendererTests(unittest.TestCase):
                 output_dir=root / "out",
             )
         self.assertEqual((cover.width, cover.height), (1774, 887))
+
+    def test_base_dimension_mismatch_is_rejected_before_render(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            base, logo = self._fixtures(root)
+            with self.assertRaises(BrandIntegrityError):
+                render_brand_asset(
+                    Path("brandloom/templates/cover-2x1.json"),
+                    self._brief(),
+                    base_image=base,
+                    asset_paths={"company_logo": logo},
+                    font_paths={"heading": self._font(), "body": self._font()},
+                    output_dir=root / "out",
+                )
+
+    def test_custom_template_canvas_is_supported_only_by_explicit_local_renderer(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            template = root / "custom-template.json"
+            template.write_text(
+                json.dumps({"schema_version": "1.0", "canvas": {"width": 1000, "height": 500}, "slots": {}}),
+                encoding="utf-8",
+            )
+            base = root / "custom-base.png"
+            Image.new("RGBA", (1000, 500), (240, 240, 240, 255)).save(base)
+            result = render_brand_asset(
+                template,
+                {"copy": {}, "style": {}, "assets": {}},
+                base_image=base,
+                asset_paths={},
+                font_paths={},
+                output_dir=root / "out",
+            )
+            self.assertEqual((result.width, result.height), (1000, 500))
+            with Image.open(result.output_path) as image:
+                self.assertEqual(image.size, (1000, 500))
 
     def test_long_title_raises_text_overflow(self) -> None:
         with TemporaryDirectory() as directory:
@@ -142,7 +180,9 @@ class RendererTests(unittest.TestCase):
     def test_value_line_and_features_are_rendered_and_audited(self) -> None:
         with TemporaryDirectory() as directory:
             root = Path(directory)
-            base, logo = self._fixtures(root)
+            _square_base, logo = self._fixtures(root)
+            base = root / "cover-base.png"
+            Image.new("RGBA", (1774, 887), (255, 255, 255, 255)).save(base)
             brief = self._brief()
             brief = BrandBrief(
                 brief.schema_version,

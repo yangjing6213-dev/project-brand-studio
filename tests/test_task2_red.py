@@ -17,7 +17,6 @@ from tests.font_test_utils import find_test_font
 
 class Task2ContractTests(unittest.TestCase):
     def _asset(self, root: Path, name: str, size: tuple[int, int], color):
-        size = {(2048, 2048): (1254, 1254), (2048, 1024): (1774, 887)}.get(size, size)
         path = root / name
         Image.new("RGBA", size, color).save(path)
         return path
@@ -78,7 +77,7 @@ class Task2ContractTests(unittest.TestCase):
             logo = self._asset(root, "logo.png", (100, 40), (10, 20, 30, 255))
             brandloom_cli.main(["asset-add", "--workspace", str(root), "--source", str(logo), "--category", "company-logo", "--scope", "project", "--rights", "user_authorized", "--save-confirmed", "--make-default"])
             self._ready_brief(root, {"project_mark": None})
-            base = self._asset(root, "base.png", (2048, 2048), (255, 255, 255, 255))
+            base = self._asset(root, "base.png", (1254, 1254), (255, 255, 255, 255))
             brandloom_cli.main(["compose", "--workspace", str(root), "--type", "logo-card", "--base", str(base)])
             self.assertEqual(brandloom_cli.main(["validate", "--workspace", str(root), "--type", "logo-card"]), 0)
             session = json.loads((root / ".brandloom" / "qa-state.json").read_text())
@@ -91,7 +90,7 @@ class Task2ContractTests(unittest.TestCase):
             root = Path(temp); brandloom_cli.main(["init", "--workspace", str(root)])
             logo = self._asset(root, "logo.png", (100, 40), (10, 20, 30, 255))
             brandloom_cli.main(["asset-add", "--workspace", str(root), "--source", str(logo), "--category", "company-logo", "--scope", "project", "--rights", "user_authorized", "--save-confirmed", "--make-default"])
-            self._ready_brief(root, {"project_mark": None}); base = self._asset(root, "base.png", (2048, 2048), (255,255,255,255))
+            self._ready_brief(root, {"project_mark": None}); base = self._asset(root, "base.png", (1254, 1254), (255,255,255,255))
             brandloom_cli.main(["compose", "--workspace", str(root), "--type", "logo-card", "--base", str(base)])
             before = json.loads((root / ".brandloom" / "qa-state.json").read_text())
             self.assertEqual(brandloom_cli.main(["validate", "--workspace", str(root), "--type", "logo-card", "--slug", "other"]), 2)
@@ -105,7 +104,7 @@ class Task2ContractTests(unittest.TestCase):
             root = Path(temp); brandloom_cli.main(["init", "--workspace", str(root)])
             logo = self._asset(root, "logo.png", (100, 40), (10, 20, 30, 255))
             brandloom_cli.main(["asset-add", "--workspace", str(root), "--source", str(logo), "--category", "company-logo", "--scope", "project", "--rights", "user_authorized", "--save-confirmed", "--make-default"])
-            self._ready_brief(root, {"project_mark": None}); base = self._asset(root, "base.png", (2048, 2048), (255,255,255,255))
+            self._ready_brief(root, {"project_mark": None}); base = self._asset(root, "base.png", (1254, 1254), (255,255,255,255))
             brandloom_cli.main(["compose", "--workspace", str(root), "--type", "logo-card", "--base", str(base)]); brandloom_cli.main(["validate", "--workspace", str(root), "--type", "logo-card"])
             out = root / ".brandloom" / "outputs" / "demo"; first = out / "generation-manifest-v01.json"; (out / "generation-manifest-v02.json").write_bytes(first.read_bytes())
             self.assertEqual(brandloom_cli.main(["deliver", "--workspace", str(root), "--type", "logo-card", "--reviewed", "--slug", "other"]), 2)
@@ -139,7 +138,7 @@ class Task2ContractTests(unittest.TestCase):
     def test_legacy_or_malformed_logo_evidence_defaults_and_fails_closed(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp); runtime = root / ".brandloom"; runtime.mkdir()
-            payload = {"schema_version": "1.0", "session_id": "s", "mode": "new", "state": "LOGO_USER_REVIEW", "project_slug": "demo", "confirmed": {}, "invalidated": [], "accepted_logo": {"path": "relative"}, "logo_review_candidate": {"path": "relative"}}
+            payload = {"schema_version": "1.0", "session_id": "s", "mode": "new", "state": "LOGO_USER_REVIEW", "project_slug": "demo", "confirmed": {}, "invalidated": [], "generation_backend": "host_builtin_image_tool", "accepted_logo": {"path": "relative"}, "logo_review_candidate": {"path": "relative"}}
             (runtime / "qa-state.json").write_text(json.dumps(payload), encoding="utf-8")
             loaded = brandloom_cli._load_session(root)
             self.assertIsNone(loaded.accepted_logo)
@@ -158,7 +157,7 @@ class Task2ContractTests(unittest.TestCase):
             brandloom_cli.main(["asset-add", "--workspace", str(root), "--source", str(logo), "--category", "company-logo", "--scope", "project", "--rights", "user_authorized", "--save-confirmed", "--make-default"])
             self._ready_brief(root, {"project_mark": None})
             state_path = root / ".brandloom" / "qa-state.json"
-            base = self._asset(root, "base.png", (2048, 2048), (255, 255, 255, 255))
+            base = self._asset(root, "base.png", (1254, 1254), (255, 255, 255, 255))
 
             # Obtain both evidence records through the real compose/validate/deliver pipeline.
             self.assertEqual(brandloom_cli.main(["compose", "--workspace", str(root), "--type", "logo-card", "--base", str(base)]), 0)
@@ -179,7 +178,7 @@ class Task2ContractTests(unittest.TestCase):
             self.assertEqual(loaded.accepted_logo, accepted)
             self.assertEqual(loaded.logo_review_candidate, candidate)
 
-            new_base = self._asset(root, "base-new.png", (2048, 2048), (245, 245, 245, 255))
+            new_base = self._asset(root, "base-new.png", (1254, 1254), (245, 245, 245, 255))
             self.assertEqual(brandloom_cli.main(["compose", "--workspace", str(root), "--type", "logo-card", "--base", str(new_base)]), 0)
             after = json.loads(state_path.read_text())
             self.assertIsNone(after.get("accepted_logo")); self.assertIsNone(after.get("logo_review_candidate"))
@@ -191,7 +190,7 @@ class Task2ContractTests(unittest.TestCase):
             logo = self._asset(root, "logo.png", (100, 40), (10, 20, 30, 255))
             brandloom_cli.main(["asset-add", "--workspace", str(root), "--source", str(logo), "--category", "company-logo", "--scope", "project", "--rights", "user_authorized", "--save-confirmed", "--make-default"])
             self._ready_brief(root, {"project_mark": {"id": "bad"}})
-            base = self._asset(root, "base.png", (2048, 2048), (255, 255, 255, 255))
+            base = self._asset(root, "base.png", (1254, 1254), (255, 255, 255, 255))
             with self.assertRaises(ValueError):
                 brandloom_cli.main(["compose", "--workspace", str(root), "--type", "logo-card", "--base", str(base)])
 
@@ -200,7 +199,7 @@ class Task2ContractTests(unittest.TestCase):
             root = Path(temp); brandloom_cli.main(["init", "--workspace", str(root)])
             logo = self._asset(root, "logo.png", (100, 40), (10, 20, 30, 255))
             brandloom_cli.main(["asset-add", "--workspace", str(root), "--source", str(logo), "--category", "company-logo", "--scope", "project", "--rights", "user_authorized", "--save-confirmed", "--make-default"])
-            self._ready_brief(root, {"project_mark": "missing-project-mark"}); base = self._asset(root, "base.png", (2048, 2048), (255, 255, 255, 255))
+            self._ready_brief(root, {"project_mark": "missing-project-mark"}); base = self._asset(root, "base.png", (1254, 1254), (255, 255, 255, 255))
             with self.assertRaises(ValueError):
                 brandloom_cli.main(["compose", "--workspace", str(root), "--type", "logo-card", "--base", str(base)])
 
@@ -209,7 +208,7 @@ class Task2ContractTests(unittest.TestCase):
             root = Path(temp); brandloom_cli.main(["init", "--workspace", str(root)])
             logo = self._asset(root, "logo.png", (100, 40), (10, 20, 30, 255))
             brandloom_cli.main(["asset-add", "--workspace", str(root), "--source", str(logo), "--category", "company-logo", "--scope", "project", "--rights", "user_authorized", "--save-confirmed", "--make-default"])
-            self._ready_brief(root, {}); base = self._asset(root, "base.png", (2048, 2048), (255, 255, 255, 255))
+            self._ready_brief(root, {}); base = self._asset(root, "base.png", (1254, 1254), (255, 255, 255, 255))
             with self.assertRaises(ValueError):
                 brandloom_cli.main(["compose", "--workspace", str(root), "--type", "logo-card", "--base", str(base)])
 
@@ -221,7 +220,7 @@ class Task2ContractTests(unittest.TestCase):
             brandloom_cli.main(["asset-add", "--workspace", str(root), "--source", str(mark), "--category", "project-mark", "--scope", "project", "--rights", "user_authorized", "--save-confirmed", "--make-default"])
             asset_manifest = root / ".brandloom" / "asset-manifest.json"
             data = json.loads(asset_manifest.read_text()); entry = next(item for item in data["assets"] if item["category"] == "project-mark"); entry["relative_path"] = "library/project-mark/missing.png"; asset_manifest.write_text(json.dumps(data), encoding="utf-8")
-            self._ready_brief(root, {}); base = self._asset(root, "base.png", (2048, 2048), (255, 255, 255, 255))
+            self._ready_brief(root, {}); base = self._asset(root, "base.png", (1254, 1254), (255, 255, 255, 255))
             with self.assertRaises(ValueError):
                 brandloom_cli.main(["compose", "--workspace", str(root), "--type", "logo-card", "--base", str(base)])
 
@@ -232,7 +231,7 @@ class Task2ContractTests(unittest.TestCase):
             logo = self._asset(root, "logo.png", (100, 40), (10, 20, 30, 255))
             brandloom_cli.main(["asset-add", "--workspace", str(root), "--source", str(logo), "--category", "company-logo", "--scope", "project", "--rights", "user_authorized", "--save-confirmed", "--make-default"])
             self._ready_brief(root, {"project_mark": 0})
-            base = self._asset(root, "base.png", (2048, 2048), (255, 255, 255, 255))
+            base = self._asset(root, "base.png", (1254, 1254), (255, 255, 255, 255))
             with self.assertRaises(ValueError):
                 brandloom_cli.main(["compose", "--workspace", str(root), "--type", "logo-card", "--base", str(base)])
 
@@ -243,7 +242,7 @@ class Task2ContractTests(unittest.TestCase):
             logo = self._asset(root, "logo.png", (100, 40), (10, 20, 30, 255))
             brandloom_cli.main(["asset-add", "--workspace", str(root), "--source", str(logo), "--category", "company-logo", "--scope", "project", "--rights", "user_authorized", "--save-confirmed", "--make-default"])
             self._ready_brief(root, {"project_mark": None})
-            base = self._asset(root, "base.png", (2048, 2048), (255, 255, 255, 255))
+            base = self._asset(root, "base.png", (1254, 1254), (255, 255, 255, 255))
             brandloom_cli.main(["compose", "--workspace", str(root), "--type", "logo-card", "--base", str(base)])
             brandloom_cli.main(["validate", "--workspace", str(root), "--type", "logo-card"])
             brandloom_cli.main(["deliver", "--workspace", str(root), "--type", "logo-card", "--reviewed"])
@@ -260,7 +259,7 @@ class Task2ContractTests(unittest.TestCase):
                 for path in output_dir.glob("generation-manifest-v*.json")
             }
             before_cover_pngs = {path.name for path in output_dir.glob("cover-*.png")}
-            cover = self._asset(root, "cover.png", (2048, 1024), (240, 240, 240, 255))
+            cover = self._asset(root, "cover.png", (1774, 887), (240, 240, 240, 255))
             with self.assertRaises(ValueError):
                 brandloom_cli.main(["compose", "--workspace", str(root), "--type", "cover", "--base", str(cover)])
             after_output_snapshot = {

@@ -16,7 +16,7 @@ Build the installable `brandloom` Codex Skill in repository `project-brand-studi
 - Governing instructions: No `AGENTS.md` found in the repository or checked ancestors; user-provided execution instructions are binding.
 - Relevant architecture/patterns: Planning/spec documents copied from the migration package into `docs/superpowers/`; no prior implementation.
 - Initial Git state: Repository initialized on `main`; planning baseline commit `dacbeee`; implementation runs in linked worktree branch `brandloom-implementation`.
-- Runtime: Bundled `C:/Users/amene/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe` reports Python 3.12.13 and Pillow 12.3.0.
+- Runtime: Bundled Python 3.12.13 and Pillow 12.3.0.
 - Baseline check: `python -m unittest -v` ran 0 tests; discovery against absent `tests/` was not applicable and reported an importable-start-directory error.
 
 ## Task Plan
@@ -73,7 +73,7 @@ Build the installable `brandloom` Codex Skill in repository `project-brand-studi
 - `python -m unittest -v` -> 0 tests, exit 0.
 
 ## Important Decisions
-- Work from the outer `F:/Projects/project-brand-studio` repository, not the nested migration package, per `CODEX_START_HERE.md`.
+- Work from the outer repository, not the nested migration package, per `CODEX_START_HERE.md`.
 - Keep `.worktrees/`, `.superpowers/`, `staging/brand-assets/`, `.brandloom/`, and `dist/` ignored; no user runtime data is tracked.
 - Use the bundled Python executable explicitly because the `py` launcher is absent.
 

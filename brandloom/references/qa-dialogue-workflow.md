@@ -44,7 +44,7 @@
 - `CUSTOM_IP_REFERENCE_PENDING`：确认真实可访问参考；确认仅抽象分析、不复制外形；补充/更换参考；返回；取消。`CUSTOM_IP_DRAFT_PENDING`：确认抽象 profile 草稿；修改 profile；重新分析；返回；取消。`RIGHTS_CONFIRM_PENDING`：确认 `user_authorized` 使用权；声明 `analysis_only`/`unknown`/`missing`/`draft_unconfirmed`；确认保存 scope 和 default scope；返回；取消。非 `user_authorized` 必须阻塞，不得生成。
 - `IP_USAGE_PENDING`：两图同组；LOGO 单个、封面组合（推荐）；LOGO 不放 IP、封面使用；分别自定义；返回修改角色。
 - `SHOT_LIST_PENDING`：确认推荐；调整 LOGO 主视觉；调整封面；调整功能点或角色动作；只交付方案和提示词。
-- `OUTPUT_SPEC_PENDING`：确认默认 PNG/sRGB 规格；GitHub Social Preview 1280x640；logo-only；cover-only；bilingual；custom dimensions（重新检查比例/安全区）；分别设置 LOGO 与封面；返回。
+- `OUTPUT_SPEC_PENDING`：确认默认 PNG/sRGB 规格；GitHub Social Preview 1280x640；logo-only；cover-only；bilingual；custom dimensions（仅本地模板/渲染 API，重新检查比例/安全区与可读性；CLI/宿主默认通道不支持）；分别设置 LOGO 与封面；返回。
 - `COHERENCE_REVIEW_PENDING`：保持要求并接受风险；采用推荐调整（推荐）；修改当前要求；返回指定阶段；取消。
 - `GENERATION_CONFIRM_PENDING`：确认生成 LOGO 后继续封面（推荐）；仅生成 LOGO；仅生成封面（需已有 LOGO）；返回修改；取消。
 

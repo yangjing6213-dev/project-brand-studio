@@ -14,6 +14,7 @@ from brandloom.scripts.brandloom_core.renderer import BrandIntegrityError, canon
 from brandloom.scripts.brandloom_core.state_machine import assert_generation_ready, confirm, invalidate_from
 from brandloom.scripts.brandloom_core.validation import validate_output
 from brandloom.scripts.brandloom_core.manifests import build_generation_manifest
+from brandloom.scripts import brandloom_cli
 from tests.font_test_utils import find_test_font
 
 
@@ -44,6 +45,20 @@ class FinalFixWaveTests(unittest.TestCase):
         invalidated = invalidate_from(self._session(treatment="monochrome-black"), "company_logo")
         self.assertNotIn("company_logo_treatment", invalidated.confirmed)
 
+    def test_cli_session_loader_rejects_non_builtin_generation_backend(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            runtime = root / ".brandloom"
+            runtime.mkdir()
+            payload = {
+                "schema_version": "1.0", "session_id": "s", "mode": "new",
+                "state": "GENERATION_READY", "project_slug": "demo",
+                "confirmed": {}, "invalidated": [], "generation_backend": "external_api",
+            }
+            (runtime / "qa-state.json").write_text(json.dumps(payload), encoding="utf-8")
+            with self.assertRaises(ValueError):
+                brandloom_cli._load_session(root)
+
     def test_white_variant_forbids_recolor_in_direct_renderer(self):
         with TemporaryDirectory() as directory:
             root = Path(directory)
@@ -65,8 +80,56 @@ class FinalFixWaveTests(unittest.TestCase):
             manifest = build_generation_manifest(brief_path=brief, assets=[{"asset_id": "logo", "category": "company-logo", "scope": "project", "rights_status": "user_authorized", "path": str(logo), "sha256": digest}], template_path=template, font_paths={"heading": find_test_font()}, base_image_path=base, output_path=output, qa_state="INTERNAL_LOGO_QA", rendered_copy={"title": "Hello"}, output_type="logo-card", logo_treatment="monochrome-black", logo_source_hash=digest)
             report = validate_output(output, manifest=manifest, output_type="logo_card", manifest_path=root / "generation-manifest-v01.json")
             self.assertTrue(report.checks.get("manifest_logo_treatment"))
+            missing_treatment = dict(manifest)
+            missing_treatment.pop("logo_treatment")
+            non_default_brief = {
+                "project": {}, "copy": {}, "style": {}, "fonts": {},
+                "assets": {"company_logo_treatment": "monochrome-black"}, "outputs": {},
+            }
+            self.assertFalse(
+                validate_output(
+                    output,
+                    manifest=missing_treatment,
+                    brief=non_default_brief,
+                    output_type="logo_card",
+                    manifest_path=root / "generation-manifest-v01.json",
+                ).checks["manifest_logo_treatment"]
+            )
+            alias_treatment = dict(manifest)
+            alias_treatment["logo_treatment"] = "recolor_monochrome"
+            self.assertFalse(
+                validate_output(
+                    output,
+                    manifest=alias_treatment,
+                    output_type="logo_card",
+                    manifest_path=root / "generation-manifest-v01.json",
+                ).checks["manifest_logo_treatment"]
+            )
             manifest.pop("logo_source_hash")
             self.assertFalse(validate_output(output, manifest=manifest, output_type="logo_card", manifest_path=root / "generation-manifest-v01.json").passed)
+
+    def test_default_manifest_may_omit_concrete_logo_treatment_confirmation(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            output = root / "logo-card-1x1-v01.png"; Image.new("RGBA", (1254, 1254), "white").save(output)
+            logo = root / "logo.png"; Image.new("RGBA", (20, 20), "black").save(logo)
+            brief = root / "brief.json"; brief.write_text(json.dumps({"copy": {"title": "Hello"}}), encoding="utf-8")
+            base = root / "base.png"; Image.new("RGBA", (1254, 1254), "white").save(base)
+            digest = hashlib.sha256(logo.read_bytes()).hexdigest()
+            manifest = build_generation_manifest(
+                brief_path=brief,
+                assets=[{"asset_id": "logo", "category": "company-logo", "scope": "project", "rights_status": "user_authorized", "path": str(logo), "sha256": digest}],
+                template_path=Path("brandloom/templates/logo-card-1x1.json"),
+                font_paths={"heading": find_test_font()},
+                base_image_path=base,
+                output_path=output,
+                qa_state="INTERNAL_LOGO_QA",
+                rendered_copy={"title": "Hello"},
+                output_type="logo-card",
+            )
+            self.assertNotIn("logo_treatment", manifest)
+            report = validate_output(output, manifest=manifest, output_type="logo_card", manifest_path=root / "generation-manifest-v01.json")
+            self.assertTrue(report.checks["manifest_logo_treatment"], report.failures)
 
 
 if __name__ == "__main__":

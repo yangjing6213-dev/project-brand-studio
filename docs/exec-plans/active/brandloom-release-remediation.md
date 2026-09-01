@@ -26,7 +26,7 @@ Close the final BrandLoom Critical and Important release blockers under the user
 - No incoming asset is copied, transformed, or packaged without exact-file public distribution authorization and truthful provenance.
 
 ## Current Repository State
-- Worktree: linked isolated worktree `F:/Projects/project-brand-studio/.worktrees/brandloom-implementation`, branch `brandloom-implementation`; main remains at `dacbeeef2b869691443618fb5e486ac76104eb02`.
+- Worktree: linked isolated worktree `.worktrees/brandloom-implementation`, branch `brandloom-implementation`; main remains at the recorded merge-base.
 - Starting HEAD: `53d3fa1f24fc20df6ea5396692608599085ee0a7`; tracked status clean.
 - Runtime: Python 3.12.13 and Pillow 12.3.0.
 - Baseline: full discovery 106/106 passed before this remediation.

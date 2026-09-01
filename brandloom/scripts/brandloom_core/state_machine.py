@@ -10,6 +10,17 @@ class GenerationGateError(RuntimeError):
     """Raised when generation is attempted without a fully confirmed session."""
 
 
+GENERATION_BACKEND = "host_builtin_image_tool"
+
+
+def assert_generation_backend(session: QASession) -> None:
+    """Fail closed unless generation is routed through the built-in host tool."""
+    if session.generation_backend != GENERATION_BACKEND:
+        raise GenerationGateError(
+            f"unsupported generation backend: {session.generation_backend!r}"
+        )
+
+
 # Every edge is explicit; callers cannot jump over a QA decision.
 TRANSITIONS: dict[QAState, frozenset[QAState]] = {
     QAState.INTAKE: frozenset({QAState.CONTEXT_ANALYSIS, QAState.CANCELLED}),
@@ -152,6 +163,7 @@ def invalidate_from(session: QASession, key: str) -> QASession:
 
 
 def assert_generation_ready(session: QASession) -> None:
+    assert_generation_backend(session)
     if session.state is not QAState.GENERATION_READY:
         raise GenerationGateError(f"generation requires GENERATION_READY, got {session.state}")
     unknown = [key for key in session.confirmed if key not in _KNOWN_KEYS]

@@ -275,6 +275,99 @@ class PipelineTests(unittest.TestCase):
                     "compose", "--workspace", str(root), "--type", "cover", "--base", str(cover),
                 ])
 
+    def test_cover_rejects_accepted_logo_bound_to_another_brief_slug(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            brandloom_cli.main(["init", "--workspace", str(root)])
+            for source, category in (
+                (self._asset(root, "logo.png", (40, 20), (1, 2, 3, 255)), "company-logo"),
+                (self._asset(root, "mark.png", (20, 20), (4, 5, 6, 255)), "project-mark"),
+            ):
+                brandloom_cli.main([
+                    "asset-add", "--workspace", str(root), "--source", str(source),
+                    "--category", category, "--scope", "project", "--rights", "user_authorized",
+                    "--save-confirmed", "--make-default",
+                ])
+            self._write_ready_brief(root, slug="demo")
+            logo_base = self._asset(root, "logo-base.png", (1254, 1254), (245, 245, 245, 255))
+            brandloom_cli.main(["compose", "--workspace", str(root), "--type", "logo-card", "--base", str(logo_base)])
+            brandloom_cli.main(["validate", "--workspace", str(root), "--type", "logo-card"])
+            brandloom_cli.main(["deliver", "--workspace", str(root), "--type", "logo-card", "--reviewed"])
+
+            # Keep the accepted artifact and brief, but tamper only with the
+            # persisted session identity.  A stale session slug must not bind
+            # an accepted logo to the next composition.
+            state_path = root / ".brandloom" / "qa-state.json"
+            state_payload = json.loads(state_path.read_text())
+            state_payload["project_slug"] = "other"
+            state_path.write_text(json.dumps(state_payload), encoding="utf-8")
+            cover_base = self._asset(root, "cover-base.png", (1774, 887), (235, 235, 235, 255))
+            with self.assertRaises(ValueError):
+                brandloom_cli.main(["compose", "--workspace", str(root), "--type", "cover", "--base", str(cover_base)])
+
+    def test_cover_rejects_accepted_logo_when_current_resolved_logo_hash_changes(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            brandloom_cli.main(["init", "--workspace", str(root)])
+            original_logo = self._asset(root, "logo-original.png", (40, 20), (1, 2, 3, 255))
+            mark = self._asset(root, "mark.png", (20, 20), (4, 5, 6, 255))
+            for source, category in ((original_logo, "company-logo"), (mark, "project-mark")):
+                brandloom_cli.main([
+                    "asset-add", "--workspace", str(root), "--source", str(source),
+                    "--category", category, "--scope", "project", "--rights", "user_authorized",
+                    "--save-confirmed", "--make-default",
+                ])
+            self._write_ready_brief(root, slug="demo")
+            logo_base = self._asset(root, "logo-base.png", (1254, 1254), (245, 245, 245, 255))
+            brandloom_cli.main(["compose", "--workspace", str(root), "--type", "logo-card", "--base", str(logo_base)])
+            brandloom_cli.main(["validate", "--workspace", str(root), "--type", "logo-card"])
+            brandloom_cli.main(["deliver", "--workspace", str(root), "--type", "logo-card", "--reviewed"])
+
+            replacement_logo = self._asset(root, "logo-replacement.png", (40, 20), (200, 20, 30, 255))
+            brandloom_cli.main([
+                "asset-add", "--workspace", str(root), "--source", str(replacement_logo),
+                "--category", "company-logo", "--scope", "project", "--rights", "user_authorized",
+                "--save-confirmed", "--make-default",
+            ])
+            asset_manifest = json.loads((root / ".brandloom" / "asset-manifest.json").read_text())
+            replacement_id = next(
+                item["asset_id"] for item in asset_manifest["assets"]
+                if item["category"] == "company-logo" and item["sha256"] != hashlib.sha256(original_logo.read_bytes()).hexdigest()
+            )
+            brief_path = root / ".brandloom" / "brand-brief.json"
+            brief_payload = json.loads(brief_path.read_text())
+            brief_payload["assets"] = {"company_logo": replacement_id, "project_mark": None}
+            brief_path.write_text(json.dumps(brief_payload), encoding="utf-8")
+            cover_base = self._asset(root, "cover-base.png", (1774, 887), (235, 235, 235, 255))
+            with self.assertRaises(ValueError):
+                brandloom_cli.main(["compose", "--workspace", str(root), "--type", "cover", "--base", str(cover_base)])
+
+    def test_cover_rejects_accepted_logo_when_brief_metadata_changes(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            brandloom_cli.main(["init", "--workspace", str(root)])
+            for source, category in (
+                (self._asset(root, "logo.png", (40, 20), (1, 2, 3, 255)), "company-logo"),
+                (self._asset(root, "mark.png", (20, 20), (4, 5, 6, 255)), "project-mark"),
+            ):
+                brandloom_cli.main([
+                    "asset-add", "--workspace", str(root), "--source", str(source),
+                    "--category", category, "--scope", "project", "--rights", "user_authorized",
+                    "--save-confirmed", "--make-default",
+                ])
+            self._write_ready_brief(root, slug="demo")
+            logo_base = self._asset(root, "logo-base.png", (1254, 1254), (245, 245, 245, 255))
+            brandloom_cli.main(["compose", "--workspace", str(root), "--type", "logo-card", "--base", str(logo_base)])
+            brandloom_cli.main(["validate", "--workspace", str(root), "--type", "logo-card"])
+            brandloom_cli.main(["deliver", "--workspace", str(root), "--type", "logo-card", "--reviewed"])
+            brief_path = root / ".brandloom" / "brand-brief.json"
+            brief_payload = json.loads(brief_path.read_text())
+            brief_payload["project"]["name"] = "Changed metadata"
+            brief_path.write_text(json.dumps(brief_payload), encoding="utf-8")
+            cover_base = self._asset(root, "cover-base.png", (1774, 887), (235, 235, 235, 255))
+            with self.assertRaises(ValueError):
+                brandloom_cli.main(["compose", "--workspace", str(root), "--type", "cover", "--base", str(cover_base)])
+
     def test_compose_rejects_unsafe_project_slug_without_escape(self) -> None:
         with TemporaryDirectory() as directory:
             root = Path(directory)

@@ -43,6 +43,14 @@ class StateMachineTests(unittest.TestCase):
         with self.assertRaises(GenerationGateError):
             assert_generation_ready(session_at(QAState.OUTPUT_SPEC_PENDING))
 
+    def test_generation_gate_requires_exact_builtin_backend(self) -> None:
+        for backend in ("external_api", "", None):
+            with self.subTest(backend=backend):
+                session = ready_session()
+                session = QASession(**{**session.__dict__, "generation_backend": backend})
+                with self.assertRaises(GenerationGateError):
+                    assert_generation_ready(session)
+
     def test_style_change_invalidates_font_and_downstream(self) -> None:
         session = session_at(QAState.STYLE_PENDING)
         session = confirm(session, "style", True)

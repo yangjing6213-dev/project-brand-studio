@@ -384,8 +384,9 @@ def validate_output(
     checks["company_logo_hash"] = bool(logo_hash)
     if not checks["company_logo_hash"]:
         failures.append("company_logo_hash")
+    treatment_present = "logo_treatment" in payload
     treatment_raw = payload.get("logo_treatment")
-    expected_treatment = None
+    expected_treatment = "default" if brief is not None else None
     if brief is not None:
         brief_assets = brief.assets if isinstance(brief, BrandBrief) else brief.get("assets", {}) if isinstance(brief, Mapping) else {}
         if isinstance(brief_assets, Mapping):
@@ -395,13 +396,25 @@ def validate_output(
                     expected_treatment = canonicalize_logo_treatment(brief_selected)
                 except ValueError:
                     expected_treatment = "invalid"
-                treatment_raw = brief_selected if treatment_raw is None else treatment_raw
-    try:
-        treatment = canonicalize_logo_treatment(treatment_raw)
-        treatment_valid = isinstance(treatment_raw, str) or treatment_raw is None
-    except ValueError:
-        treatment, treatment_valid = "default", False
-    checks["manifest_logo_treatment"] = treatment_valid and (expected_treatment is None or treatment == expected_treatment)
+    # A default manifest may omit the field because no concrete treatment was
+    # confirmed.  Once a treatment is recorded, however, the manifest must use
+    # the canonical spelling; accepting the legacy operation alias here would
+    # make the audit trail ambiguous.
+    if not treatment_present:
+        treatment = "default"
+        treatment_valid = expected_treatment in (None, "default")
+    elif not isinstance(treatment_raw, str) or not treatment_raw.strip():
+        treatment = "default"
+        treatment_valid = False
+    else:
+        try:
+            treatment = canonicalize_logo_treatment(treatment_raw)
+            treatment_valid = treatment_raw == treatment
+        except ValueError:
+            treatment, treatment_valid = "default", False
+        if expected_treatment is not None:
+            treatment_valid = treatment_valid and treatment == expected_treatment
+    checks["manifest_logo_treatment"] = treatment_valid
     checks["manifest_logo_operation"] = True
     checks["manifest_logo_confirmation"] = True
     checks["manifest_logo_source_hash"] = True

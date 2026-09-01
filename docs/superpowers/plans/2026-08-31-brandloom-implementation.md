@@ -10,6 +10,14 @@
 
 **Spec:** `docs/superpowers/specs/2026-08-31-brandloom-design.md`
 
+> **Supersession note (2026-09-02):** This dated implementation plan is a
+> historical execution record. Its original 2048×2048 and 2048×1024 examples
+> are retained for audit history only. The active verified-state plan
+> (`docs/exec-plans/active/brandloom-visual-acceptance.md`) supersedes those
+> defaults with the user-authorized host contract: 1254×1254 (`logo-card`) and
+> 1774×887 (`cover`). New runs must follow the active plan; this record is not
+> a current requirement source.
+
 ## Global Constraints
 
 - 仓库名称固定为 `project-brand-studio`，Skill 目录和 front matter 名称固定为 `brandloom`。

@@ -29,7 +29,7 @@ try:
     from .brandloom_core.renderer import render_brand_asset, rendered_copy_values
     from .brandloom_core.renderer import BrandIntegrityError
     from .brandloom_core.treatments import canonicalize_logo_treatment, operation_for_treatment
-    from .brandloom_core.state_machine import advance, assert_generation_ready, confirm, invalidate_from
+    from .brandloom_core.state_machine import GENERATION_BACKEND, advance, assert_generation_backend, assert_generation_ready, confirm, invalidate_from
     from .brandloom_core.prompt_builder import build_host_request, validate_generated_path
     from .brandloom_core.validation import validate_output, validate_accepted_logo_evidence
 except ImportError:  # pragma: no cover - supports direct script execution
@@ -42,7 +42,7 @@ except ImportError:  # pragma: no cover - supports direct script execution
     from brandloom.scripts.brandloom_core.renderer import render_brand_asset, rendered_copy_values
     from brandloom.scripts.brandloom_core.renderer import BrandIntegrityError
     from brandloom.scripts.brandloom_core.treatments import canonicalize_logo_treatment, operation_for_treatment
-    from brandloom.scripts.brandloom_core.state_machine import advance, assert_generation_ready, confirm, invalidate_from
+    from brandloom.scripts.brandloom_core.state_machine import GENERATION_BACKEND, advance, assert_generation_backend, assert_generation_ready, confirm, invalidate_from
     from brandloom.scripts.brandloom_core.prompt_builder import build_host_request, validate_generated_path
     from brandloom.scripts.brandloom_core.validation import validate_output, validate_accepted_logo_evidence
 
@@ -136,6 +136,9 @@ def _load_brief(workspace: Path) -> BrandBrief:
 def _load_session(workspace: Path) -> QASession:
     path = project_root(workspace) / "qa-state.json"
     payload = json.loads(path.read_text(encoding="utf-8"))
+    backend = payload.get("generation_backend")
+    if backend != GENERATION_BACKEND:
+        raise ValueError("qa session generation_backend must be host_builtin_image_tool")
     project_slug = str(payload.get("project_slug", "project"))
     accepted_raw = payload.get("accepted_logo")
     accepted_logo = None
@@ -152,7 +155,7 @@ def _load_session(workspace: Path) -> QASession:
         source_refs=tuple(payload.get("source_refs", ())),
         confirmed=dict(payload.get("confirmed", {})),
         invalidated=tuple(payload.get("invalidated", ())),
-        generation_backend=str(payload.get("generation_backend", "host_builtin_image_tool")),
+        generation_backend=backend,
         accepted_logo=accepted_logo,
         logo_review_candidate=candidate,
         updated_at=str(payload.get("updated_at", "")),
@@ -202,6 +205,87 @@ def _manifest_output_path(manifest_path: Path, payload: dict[str, object]) -> Pa
         raise ValueError("manifest output path is missing")
     path = Path(entry["path"])
     return path.resolve() if path.is_absolute() else (manifest_path.parent / path).resolve()
+
+
+def _sha256_path(path: Path) -> str:
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def _manifest_company_logo_hash(payload: dict[str, object]) -> str | None:
+    assets = payload.get("assets")
+    if not isinstance(assets, list):
+        return None
+    hashes: list[str] = []
+    for entry in assets:
+        if not isinstance(entry, dict) or str(entry.get("category", "")) != "company-logo":
+            continue
+        value = entry.get("sha256", entry.get("observed_sha256", ""))
+        if not isinstance(value, str) or not value:
+            return None
+        hashes.append(value.lower())
+    if not hashes or len(set(hashes)) != 1:
+        return None
+    return hashes[0]
+
+
+def _assert_accepted_logo_binding(
+    *,
+    evidence: dict[str, object],
+    manifest_path: Path,
+    manifest: dict[str, object],
+    root: Path,
+    brief_path: Path,
+    output_dir: Path,
+    slug: str,
+    session: QASession,
+    logo,
+    logo_treatment: str,
+) -> None:
+    """Bind cover composition to the current workspace and logo decision."""
+    if session.project_slug != slug or evidence.get("slug") != slug:
+        raise ValueError("accepted logo evidence is bound to a different project slug")
+    outputs_root = (root / "outputs").resolve()
+    resolved_manifest = manifest_path.resolve()
+    if not resolved_manifest.is_relative_to(outputs_root):
+        raise ValueError("accepted logo manifest is outside the current workspace outputs")
+    accepted_output = Path(str(evidence.get("path", ""))).resolve()
+    if not accepted_output.is_relative_to(outputs_root) or accepted_output.parent != output_dir.resolve():
+        raise ValueError("accepted logo output is outside the current project output directory")
+    if resolved_manifest.parent != output_dir.resolve():
+        raise ValueError("accepted logo manifest is outside the current project output directory")
+
+    brief_entry = manifest.get("brief")
+    if not isinstance(brief_entry, dict):
+        raise ValueError("accepted logo manifest is missing its brief binding")
+    recorded_brief = Path(str(brief_entry.get("path", "")))
+    recorded_brief = recorded_brief.resolve() if recorded_brief.is_absolute() else (resolved_manifest.parent / recorded_brief).resolve()
+    if recorded_brief != brief_path.resolve() or brief_entry.get("sha256") != _sha256_path(brief_path):
+        raise ValueError("accepted logo manifest is bound to a different brief")
+    manifest_slug = manifest.get("project_slug")
+    if manifest_slug is not None and manifest_slug != slug:
+        raise ValueError("accepted logo manifest is bound to a different project slug")
+
+    current_logo_hash = str(logo.record.sha256).lower()
+    if _manifest_company_logo_hash(manifest) != current_logo_hash:
+        raise ValueError("accepted logo manifest is bound to a different company-logo source")
+    source_hash = manifest.get("logo_source_hash")
+    if source_hash is not None and str(source_hash).lower() != current_logo_hash:
+        raise ValueError("accepted logo treatment source hash does not match the current logo")
+    raw_treatment = manifest.get("logo_treatment", "default")
+    try:
+        canonical_treatment = canonicalize_logo_treatment(raw_treatment)
+    except ValueError as exc:
+        raise ValueError("accepted logo manifest has an invalid logo treatment") from exc
+    if raw_treatment != canonical_treatment or canonical_treatment != logo_treatment:
+        raise ValueError("accepted logo treatment does not match the current brief")
+
+    host_request = manifest.get("host_request")
+    if isinstance(host_request, dict):
+        accepted_host = host_request.get("accepted_logo")
+        if isinstance(accepted_host, dict):
+            host_path = Path(str(accepted_host.get("path", ""))).resolve()
+            if host_path != accepted_output or accepted_host.get("sha256") != evidence.get("sha256"):
+                raise ValueError("accepted logo host evidence does not match the reviewed output")
 
 
 def _resolve_font_paths(brief: BrandBrief) -> dict[str, Path]:
@@ -263,6 +347,7 @@ def _post_compose_session(session: QASession, output_type: str) -> QASession:
 def _compose(args: argparse.Namespace) -> int:
     workspace = _workspace(args.workspace)
     session = _load_session(workspace)
+    assert_generation_backend(session)
     if args.type == "logo-card":
         assert_generation_ready(session)
     elif session.state is not QAState.GENERATE_COVER_BASE:
@@ -270,6 +355,7 @@ def _compose(args: argparse.Namespace) -> int:
     brief = _load_brief(workspace)
     slug = safe_project_slug(brief.project.get("slug", brief.project.get("name", "project")))
     output_dir = project_output_dir(workspace, slug)
+    root = project_root(workspace)
     base_path = Path(args.base)
     if not base_path.is_absolute():
         base_path = (workspace / base_path).resolve()
@@ -280,21 +366,6 @@ def _compose(args: argparse.Namespace) -> int:
     accepted_logo_evidence = None
     accepted_manifest = None
     accepted_manifest_path = None
-    if args.type == "cover":
-        accepted_logo_evidence = session.accepted_logo
-        if not validate_accepted_logo_evidence(accepted_logo_evidence):
-            raise ValueError("cover composition requires accepted logo evidence")
-        accepted_logo_path = Path(str(accepted_logo_evidence.get("path", ""))).resolve()
-        accepted_manifest_path = Path(str(accepted_logo_evidence["manifest_path"]))
-        accepted_manifest = json.loads(accepted_manifest_path.read_text(encoding="utf-8"))
-    host_request = build_host_request(
-        brief,
-        prompt_type,
-        expected=dimensions,
-        accepted_logo_path=accepted_logo_path,
-        accepted_logo_evidence=accepted_logo_evidence,
-        skill_root=skill_root,
-    )
     template = skill_root / ("templates/logo-card-1x1.json" if args.type == "logo-card" else "templates/cover-2x1.json")
     explicit_logo = brief.assets.get("company_logo")
     logo = resolve_asset(
@@ -322,20 +393,6 @@ def _compose(args: argparse.Namespace) -> int:
         explicit_asset_id=str(explicit_mark) if isinstance(explicit_mark, str) and explicit_mark else None,
         skill_root=skill_root,
     )
-    root = project_root(workspace)
-    if args.type == "cover":
-        accepted_report = validate_output(accepted_logo_path, manifest=accepted_manifest, brief=brief, output_type="logo_card", manual_visual_checks=True, manifest_path=accepted_manifest_path, output_root=root / "outputs")
-        if not accepted_report.passed:
-            raise ValueError("accepted logo manifest is no longer valid")
-    asset_paths = {"company_logo": logo.path}
-    used_assets = [_asset_manifest_entry(logo)]
-    if mark is not None:
-        asset_paths["project_mark"] = mark.path
-        used_assets.append(_asset_manifest_entry(mark))
-    for reference in host_request.get("reference_assets", []):
-        if isinstance(reference, dict):
-            used_assets.append(dict(reference))
-    font_paths = _resolve_font_paths(brief)
     try:
         logo_treatment = canonicalize_logo_treatment(brief.assets.get("company_logo_treatment", brief.assets.get("logo_treatment")))
     except ValueError as exc:
@@ -349,6 +406,60 @@ def _compose(args: argparse.Namespace) -> int:
         logo_treatment == "monochrome-black" and operation_for_treatment(logo_treatment) in logo.record.forbidden_operations
     ):
         raise BrandIntegrityError("selected company logo asset forbids recolor_monochrome")
+
+    if args.type == "cover":
+        accepted_logo_evidence = session.accepted_logo
+        if not validate_accepted_logo_evidence(accepted_logo_evidence, expected_slug=slug):
+            raise ValueError("cover composition requires accepted logo evidence for the current project")
+        assert isinstance(accepted_logo_evidence, dict)
+        accepted_logo_path = Path(str(accepted_logo_evidence.get("path", ""))).resolve()
+        accepted_manifest_path = Path(str(accepted_logo_evidence["manifest_path"])).resolve()
+        accepted_manifest = json.loads(accepted_manifest_path.read_text(encoding="utf-8"))
+        if not isinstance(accepted_manifest, dict):
+            raise ValueError("accepted logo manifest must be a JSON object")
+        _assert_accepted_logo_binding(
+            evidence=accepted_logo_evidence,
+            manifest_path=accepted_manifest_path,
+            manifest=accepted_manifest,
+            root=root,
+            brief_path=root / "brand-brief.json",
+            output_dir=output_dir,
+            slug=slug,
+            session=session,
+            logo=logo,
+            logo_treatment=logo_treatment,
+        )
+        accepted_report = validate_output(
+            accepted_logo_path,
+            manifest=accepted_manifest,
+            brief=brief,
+            asset_hashes={"company_logo": logo.record.sha256},
+            output_type="logo_card",
+            manual_visual_checks=True,
+            brief_path=root / "brand-brief.json",
+            manifest_path=accepted_manifest_path,
+            output_root=root / "outputs",
+        )
+        if not accepted_report.passed:
+            raise ValueError("accepted logo manifest is no longer valid")
+
+    host_request = build_host_request(
+        brief,
+        prompt_type,
+        expected=dimensions,
+        accepted_logo_path=accepted_logo_path,
+        accepted_logo_evidence=accepted_logo_evidence,
+        skill_root=skill_root,
+    )
+    asset_paths = {"company_logo": logo.path}
+    used_assets = [_asset_manifest_entry(logo)]
+    if mark is not None:
+        asset_paths["project_mark"] = mark.path
+        used_assets.append(_asset_manifest_entry(mark))
+    for reference in host_request.get("reference_assets", []):
+        if isinstance(reference, dict):
+            used_assets.append(dict(reference))
+    font_paths = _resolve_font_paths(brief)
     result = render_brand_asset(template, brief, base_image=base_path, asset_paths=asset_paths,
                                 font_paths=font_paths, output_dir=output_dir, logo_treatment=logo_treatment,
                                 confirmed_treatment=confirmed_treatment)

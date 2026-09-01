@@ -18,8 +18,9 @@ delivered artifact.
     without changing logo geometry, letterforms, proportions, or source bytes.
   - Reject confirmed fonts that cannot render the confirmed copy; use a
     locally available CJK-capable font for acceptance.
-  - Generate one 2048x2048 and one 2048x1024 base image with the host built-in
+  - Generate one 1254x1254 and one 1774x887 base image with the host built-in
     image tool, preserve returned paths, and compose them through BrandLoom.
+    The former 2048x2048 and 2048x1024 values are historical-only evidence.
 - Constraints:
   - Python >=3.12; Pillow==12.3.0; JSON only for runtime state.
   - No API keys, fallback image API, third-party provider, recursive Codex,
@@ -54,53 +55,68 @@ delivered artifact.
 
 ## Current Repository State
 
-- Worktree: `F:/Projects/project-brand-studio/.worktrees/brandloom-implementation`
+- Worktree: isolated repository worktree (`.worktrees/brandloom-implementation`)
 - Branch: `brandloom-implementation`
 - Starting HEAD: `e090581c1bf2c5160fe6e8e779e9b980a3a5e9df`
 - Main remains at the earlier baseline and must not be modified in this task.
-- Existing BrandLoom automated verification is 137/137; visual generation was
-  previously not run.
+- Historical pre-remediation automated verification was 137/137; current
+  verification counts are recorded in the concentrated-fix report.
 - User supplied black-logo reference:
-  `C:/Users/amene/Desktop/项目视觉素材生成项目/LOGO/logo 2.0/ChatGPT Image 2026年8月22日 20_11_06 (3).png`.
+  `staging/brand-assets/incoming/` (exact authorized source recorded in ignored evidence).
 
 ## Task Plan
 
 | ID | Objective | Files likely affected | Acceptance criteria | Verification | Dependencies | Status |
 |---|---|---|---|---|---|---|
 | T1 | Add explicit black logo treatment and CJK glyph coverage guard | `renderer.py`, `fonts.py`, tests, focused docs | RED→GREEN; source hash and geometry preserved; missing glyphs fail closed | focused tests, related/full unittest, diff/status, independent review | existing asset/renderer contracts | verified |
-| T4 | Final concentrated review-fix wave | treatment mapping, state confirmation, asset policy, manifest QA, tests/docs | five final-review findings covered; RED→GREEN; T2 remains PARTIAL | focused/related/full tests, compileall, two package builds/audit, diff/status | T1; existing T2 gate | verified |
-| T2 | Run host image generation and two fresh compositions | ignored `.brandloom/`, `F:/Projects/cognitive-anchor-sketcher/assets/brandloom-visual-acceptance/`, evidence report | exact dimensions, valid paths, black logo legible, Chinese copy readable, no overwrite | image inspection, BrandLoom CLI QA/delivery, manifest audit | T1; `GENERATION_READY` | blocked |
+| T4 | Final concentrated review-fix wave | treatment mapping, state confirmation, asset policy, manifest QA, tests/docs | final-review findings covered; RED→GREEN; amended T2 evidence retained | focused/related/full tests, compileall, two package builds/audit, diff/status | T1; amended T2 evidence | verified |
+| T2 | Run host image generation and two fresh compositions | ignored `.brandloom/`, ignored evidence report | exact 1254×1254 and 1774×887 dimensions, valid paths, legible logo/copy, no overwrite | image inspection, BrandLoom CLI QA/delivery, manifest audit | T1; `GENERATION_READY` | verified (visual residual recorded) |
 | T3 | Finalize evidence and package | active plan, ignored SDD ledger, package output | full executable verification and package audit; no scope drift | full unittest, compileall, deterministic ZIP audit, diff/status | T1–T2 | verified |
 
 ## Completed + Verified
 
 - T1 implementation commits: `1973f4d2c65b842ca06ae2e2d686b4e5e8a7fe32` and review-fix commit `5db6c1eb6f17327830830462b24b18dd2253ef07`. The initial independent review was `NEEDS_FIX` (missing-glyph sentinel and CLI error-type findings); both fixes are in the second commit. Fresh Task 3 full unittest evidence is 143 tests passing.
-- T3 executed with bundled Python 3.12.13 and Pillow 12.3.0: the current source passes the focused final-fix suite (5), full unittest (148), the legacy suite (143), `compileall -q brandloom tests`, and focused package/asset tests. The current source produces a deterministic 60-entry package; the latest two-build SHA-256 is recorded below.
+- T3 executed with bundled Python 3.12.13 and Pillow 12.3.0: current verification counts and the deterministic 60-entry package hash are recorded in the final-fix report below.
 - Historical pre-final-fix ZIP audit found 59 unique entries and no entries from `.brandloom`, `staging`, `tests`, `.superpowers`, `.git`, or `__pycache__`; it also found no supplied composite sheet, cognitive-anchor/generated-image paths, or secret/private-path content. The current 60-entry audit is recorded below.
-- Final concentrated fix wave: added shared operation→treatment mapping, state-bound `company_logo_treatment` confirmation and invalidation, machine-readable ENHE operation policy, strict non-default manifest treatment/hash/operation/confirmation QA, and Emoji-safe glyph sentinels. Focused RED was observed before implementation; focused/related suite now passes 62 tests and full suite passes 148 tests. T2 exact-size generation remains PARTIAL/blocked.
+- Final concentrated fix wave: strict manifest treatment provenance, exact base/template dimensions, accepted-logo evidence binding, exact host-backend gate, explicit local custom-template validation, and refreshed QA/package evidence. Focused RED was observed before each behavioral fix; final counts are recorded in the final-fix report.
+- Current concentrated-fix verification: focused 83/83 and full 158/158 tests
+  passed; `compileall -q brandloom tests` and `git diff --check` passed. Two
+  package builds were byte-identical (60 unique entries), SHA-256
+  `a44087514447e20da7a559944d4832c9248236c826909295925af9e54063415d`; the
+  exclusion audit passed. Exact commands and output paths are in the ignored
+  `final-fix-report-dimension.md`.
 
 ## Current Work
 
-- No safe compose task can proceed: T2 must remain at `GENERATION_READY` until a future user-authorized host generation returns exact-size bases.
+- The amended host-fixed contract is active: `logo-card` 1254×1254 and `cover`
+  1774×887. The concentrated fix implementation and fresh end-to-end QA are
+  recorded; the single scoped final re-review remains the parent task's next
+  checkpoint.
 
 ## Remaining Work
 
-- Obtain new host-built generation results that are exactly 2048×2048 and 2048×1024, then rerun compose, automated validation, manifest audit, manual composed-output inspection, and reviewed delivery.
+- Complete the final verification checklist and obtain the one scoped final
+  re-review. Historical 2048-pixel evidence is retained read-only and is not a
+  remaining generation requirement.
 
 ## Failures
 
-- T2 dimension gate: `exec-6a6cfbc5-25ab-4b0f-bbec-0e87d767dced.png` at `C:\Users\amene\.codex\generated_images\01a05d86-3df9-7782-9c01-f89678b502a2\exec-6a6cfbc5-25ab-4b0f-bbec-0e87d767dced.png` is 1254×1254, SHA-256 `2f2e4d6ceebf42c2cc984285c94562787458ccd2ce5d48241cb979f289d8c438`.
-- T2 dimension gate: `exec-bbdff959-f8ce-443a-b7a8-04cedbc942ee.png` at `C:\Users\amene\.codex\generated_images\01a05d86-3df9-7782-9c01-f89678b502a2\exec-bbdff959-f8ce-443a-b7a8-04cedbc942ee.png` is 1774×887, SHA-256 `e9d9c22a4f559e2b17ef9902c1b60397a5760bfb0e9d2c7aa3be45f1e48703f0`.
-- Both paths are readable and their generated bases were visually inspected, but neither satisfies the exact pixel contract. `validate_generated_path` hard-stopped composition before output/manifest writes; compose, composed-output visual QA, automated validate, and `deliver --reviewed` are unavailable.
+- Historical pre-amendment gate evidence: the host returned 1254×1254 and
+  1774×887 at ignored generated-image paths (hashes are retained in the
+  ignored ledger). These dimensions now satisfy the active contract and were
+  re-run through fresh compose/validate/reviewed-delivery evidence. The first
+  white-treatment exploratory composition had insufficient contrast on its
+  pale base; the reviewed black-treatment run is the current visual evidence.
 
 ## Evidence
 
-- `C:\Users\amene\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe --version` plus Pillow import -> Python 3.12.13; Pillow 12.3.0.
-- `-m unittest discover -s tests -q` -> 143 tests, OK (exit 0).
-- `-m compileall -q brandloom tests` -> exit 0.
-- `-m unittest tests.test_package tests.test_task3_assets -v` -> 21 tests, OK (exit 0).
+- Bundled Python 3.12.13 plus Pillow 12.3.0 was used for verification.
+- Historical pre-final-fix `-m unittest discover -s tests -q` -> 143 tests, OK (exit 0).
+- Historical pre-final-fix `-m compileall -q brandloom tests` -> exit 0.
+- Historical pre-final-fix `-m unittest tests.test_package tests.test_task3_assets -v` -> 21 tests, OK (exit 0).
 - Historical pre-final-fix `scripts/build_skill_package.py` double build -> matching SHA-256 above (exit 0); current source evidence is the 60-entry double build below.
-- Final concentrated fix commit: `c218a0d8bf909c639724093c0ce51a4e2d5b13bd`. The scoped re-review rebuilt the current source twice: 60 unique entries, byte-identical archives, SHA-256 `3494a2b03ff4641f81b316a26cac0ccbb9ec6e505bbb50a958f9be98f29f3080`, and zero excluded entries.
+- Historical pre-amendment package hash: `3494a2b03ff4641f81b316a26cac0ccbb9ec6e505bbb50a958f9be98f29f3080` (superseded; current hash is recorded by the final-fix report).
+- Current concentrated-fix report: `.superpowers/sdd/brandloom-visual-acceptance/final-fix-report-dimension.md` (ignored evidence; current package hash and exact QA paths are recorded there).
 - The scoped re-review is recorded in ignored `.superpowers/sdd/brandloom-visual-acceptance/scope-rereview.md`: four final-review findings are PASS; the manifest-field fallback/operation-alias boundary is an adjudicated P2 residual, and no second fix wave is authorized.
 
 ## Important Decisions
@@ -119,10 +135,15 @@ delivered artifact.
 
 ## Final Acceptance
 
-- Status: PARTIAL
-- Requirements verified: T1 code-level black-treatment and CJK tests; generated-base inspection; hard-stop on invalid generation dimensions; full test/compile/package and deterministic ZIP evidence.
-- Not verified: final composed black-logo contrast, Chinese glyph readability in a delivered composition, alpha/manifest values for that composition, and reviewed delivery. No final visual acceptance is claimed.
-- Remaining risks: host image generation can return correct aspect ratios with non-contract pixel dimensions; no resize, fallback, or automatic retry is authorized. The scoped re-review also records a P2 manifest QA residual: validation can fall back to the brief treatment when the top-level field is absent and accepts the operation alias after canonicalization. This is explicitly adjudicated for a later bounded change, not silently treated as closed.
+- Status: implementation and fresh QA verified; scoped final re-review pending.
+- Current acceptance requires strict manifest provenance, exact fixed dimensions,
+  fresh logo-first/cover reviewed delivery, deterministic package evidence, and
+  a clean scoped re-review. The current black-treatment images were inspected
+  and are legible; visual identity/layout differences from the supplied host
+  drafts remain an explicitly recorded cosmetic residual.
+- Remaining known cosmetic risk: the deferred asset/contrast and host-scene
+  identity minor is retained as an explicit follow-up; it does not authorize
+  weakening the integrity gates.
 
 ## User-approved dimension amendment (2026-09-02)
 
@@ -179,11 +200,33 @@ amendment agree on the two user-approved dimensions.
 - The new host-fixed dimensions were exercised end-to-end in a fresh ignored
   workspace using the immutable v2 drafts. Both outputs passed automated QA and
   reviewed delivery; the final QA state is `DELIVERED`.
-- The first black-treatment exploratory output was not delivered because its
-  contrast was insufficient on the dark base. The accepted run uses the
-  authorized white ENHE source treatment and white deterministic copy, with no
-  logo-card IP.
-- Remaining work is final branch verification: update evidence bookkeeping,
-  run the complete unittest/compile/package audit, and obtain the final
-  independent whole-branch review. The plan stays active until those checks are
-  evidenced.
+- The first white-treatment exploratory output was not selected because its
+  contrast was insufficient on the pale base. A fresh run uses the authorized
+  `enhe` source with the explicitly confirmed `monochrome-black` treatment and
+  black deterministic copy, with no logo-card IP; both outputs are legible at
+  the active dimensions.
+- Remaining work is the single scoped final branch re-review. The complete
+  unittest/compile/package audit is recorded in the concentrated-fix report;
+  keep the plan active until that review and its evidence are recorded.
+
+### Final concentrated-fix checkpoint (2026-09-02)
+
+- Tracked implementation/docs/tests commit: `ac6035a82f12415c2b75295a66ed2b66cda31440`
+  (`fix: close BrandLoom dimension and evidence findings`).
+- Fresh QA was initialized with `brandloom_cli init` in the ignored workspace
+  `.brandloom/task2-accept-20260902-run-fresh-black/`; the current brief was
+  written before the state-confirm sequence. The state reached
+  `GENERATION_READY`, then completed logo-first reviewed delivery and ended at
+  `DELIVERED`. The persisted slug was synchronized to the current brief before
+  generation; no prior `qa-state.json` was copied.
+- The original host-return paths were consumed verbatim (no copy); their
+  exact path strings and hashes are retained only in the ignored evidence
+  report to avoid putting machine-local paths in tracked docs.
+- The reviewed run explicitly selected the authorized `enhe` source and
+  confirmed `monochrome-black`; logo-card IP selection is empty and cover IP
+  selection is `author-anime`/`tuotuo`/`xingbi`. Output hashes and manifest
+  hashes are recorded in `final-fix-report-dimension.md`.
+- `view_image` inspection confirms both exact dimensions and legible black
+  logo/copy. The host scene still has a cosmetic identity/layout difference
+  from the supplied IP references; this is retained as a residual rather than
+  represented as a full visual-fidelity pass.

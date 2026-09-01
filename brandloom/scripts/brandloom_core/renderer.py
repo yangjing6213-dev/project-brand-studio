@@ -173,7 +173,9 @@ def render_brand_asset(
     width, height = int(canvas["width"]), int(canvas["height"])
     background, base_hash = _image(base_image)
     if background.size != (width, height):
-        background = background.resize((width, height), Image.Resampling.LANCZOS)
+        raise BrandIntegrityError(
+            f"base image dimensions {background.size} do not match template canvas {(width, height)}"
+        )
     output = background.convert("RGBA")
     selected_treatment = _selected_logo_treatment(brief, logo_treatment)
     if selected_treatment != "default":
