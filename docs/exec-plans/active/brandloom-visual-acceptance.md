@@ -117,7 +117,12 @@ delivered artifact.
 - Historical pre-final-fix `scripts/build_skill_package.py` double build -> matching SHA-256 above (exit 0); current source evidence is the 60-entry double build below.
 - Historical pre-amendment package hash: `3494a2b03ff4641f81b316a26cac0ccbb9ec6e505bbb50a958f9be98f29f3080` (superseded; current hash is recorded by the final-fix report).
 - Current concentrated-fix report: `.superpowers/sdd/brandloom-visual-acceptance/final-fix-report-dimension.md` (ignored evidence; current package hash and exact QA paths are recorded there).
-- The scoped re-review is recorded in ignored `.superpowers/sdd/brandloom-visual-acceptance/scope-rereview.md`: four final-review findings are PASS; the manifest-field fallback/operation-alias boundary is an adjudicated P2 residual, and no second fix wave is authorized.
+- The earlier `.superpowers/sdd/brandloom-visual-acceptance/scope-rereview.md`
+  is retained as superseded historical evidence. The current scoped review is
+  `.superpowers/sdd/brandloom-visual-acceptance/scope-rereview-dimension.md`;
+  it records implementation PASS for findings 1–5 and 7–9, with a documented
+  plan-pointer and visual-fidelity residual. No second implementation wave is
+  authorized.
 
 ## Important Decisions
 
@@ -135,7 +140,9 @@ delivered artifact.
 
 ## Final Acceptance
 
-- Status: implementation and fresh QA verified; scoped final re-review pending.
+- Status: **PARTIAL** — implementation, fresh technical QA, and the scoped
+  final re-review are verified; exact visual fidelity to the supplied host
+  scene remains open as a cosmetic residual.
 - Current acceptance requires strict manifest provenance, exact fixed dimensions,
   fresh logo-first/cover reviewed delivery, deterministic package evidence, and
   a clean scoped re-review. The current black-treatment images were inspected
@@ -143,7 +150,8 @@ delivered artifact.
   drafts remain an explicitly recorded cosmetic residual.
 - Remaining known cosmetic risk: the deferred asset/contrast and host-scene
   identity minor is retained as an explicit follow-up; it does not authorize
-  weakening the integrity gates.
+  weakening the integrity gates. The older scope report is historical and the
+  dimension-scoped review is the current status evidence.
 
 ## User-approved dimension amendment (2026-09-02)
 
@@ -205,13 +213,13 @@ amendment agree on the two user-approved dimensions.
   `enhe` source with the explicitly confirmed `monochrome-black` treatment and
   black deterministic copy, with no logo-card IP; both outputs are legible at
   the active dimensions.
-- Remaining work is the single scoped final branch re-review. The complete
+- The single scoped final branch re-review is complete. The complete
   unittest/compile/package audit is recorded in the concentrated-fix report;
-  keep the plan active until that review and its evidence are recorded.
+  keep this plan active because the overall visual-fidelity status is PARTIAL.
 
 ### Final concentrated-fix checkpoint (2026-09-02)
 
-- Tracked implementation/docs/tests commit: `ac6035a82f12415c2b75295a66ed2b66cda31440`
+- Tracked implementation/docs/tests commit: `9bd46fd379f6a0a59d4c76aaa8901fc8e68aeb4e`
   (`fix: close BrandLoom dimension and evidence findings`).
 - Fresh QA was initialized with `brandloom_cli init` in the ignored workspace
   `.brandloom/task2-accept-20260902-run-fresh-black/`; the current brief was
