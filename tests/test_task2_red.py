@@ -65,6 +65,18 @@ class Task2ContractTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 brandloom_cli.main(["compose", "--workspace", str(root), "--type", "logo-card", "--base", str(base)])
 
+    def test_numeric_zero_project_mark_is_not_treated_as_none(self):
+        helper = PipelineTests()
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            brandloom_cli.main(["init", "--workspace", str(root)])
+            logo = helper._asset(root, "logo.png", (100, 40), (10, 20, 30, 255))
+            brandloom_cli.main(["asset-add", "--workspace", str(root), "--source", str(logo), "--category", "company-logo", "--scope", "project", "--rights", "user_authorized", "--save-confirmed", "--make-default"])
+            helper._write_ready_brief(root, assets={"project_mark": 0})
+            base = helper._asset(root, "base.png", (2048, 2048), (255, 255, 255, 255))
+            with self.assertRaises(ValueError):
+                brandloom_cli.main(["compose", "--workspace", str(root), "--type", "logo-card", "--base", str(base)])
+
     def test_mutated_accepted_logo_blocks_cover_composition(self):
         helper = PipelineTests()
         with tempfile.TemporaryDirectory() as temp:

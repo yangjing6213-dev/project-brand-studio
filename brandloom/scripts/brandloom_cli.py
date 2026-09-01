@@ -304,7 +304,11 @@ def _compose(args: argparse.Namespace) -> int:
     if logo is None:
         raise ValueError("an authorized company-logo is required")
     mark_value = brief.assets.get("project_mark")
-    mark_absent = "project_mark" in brief.assets and mark_value in (None, False, "", "none")
+    mark_absent = "project_mark" in brief.assets and (
+        mark_value is None
+        or (type(mark_value) is bool and mark_value is False)
+        or (type(mark_value) is str and mark_value in {"", "none"})
+    )
     if "project_mark" in brief.assets and not mark_absent and not isinstance(mark_value, str):
         raise ValueError("project_mark must be a valid asset ID or explicit none")
     if "project_mark" not in brief.assets and resolve_asset(AssetCategory.PROJECT_MARK, workspace=workspace, skill_root=skill_root) is None:
