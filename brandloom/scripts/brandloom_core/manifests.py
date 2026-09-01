@@ -94,16 +94,14 @@ def build_generation_manifest(
         "base_image": _entry(base_image_path),
         "output": _entry(output_path),
         "rendered_copy": dict(rendered_copy or {}),
+        "output_type": str(output_type or ""),
+        "host_request": dict(host_request or {"schema_version": "1.0", "backend": "host_builtin_image_tool", "reference_assets": []}),
     }
-    if output_type:
-        manifest["output_type"] = output_type
     if base_prompt is not None:
         manifest["base_prompt"] = base_prompt
     if image_tool_returned_path is not None:
         # Preserve the host tool's returned string verbatim for auditability.
         manifest["image_tool_returned_path"] = str(image_tool_returned_path)
-    if host_request is not None:
-        manifest["host_request"] = dict(host_request)
     return manifest
 
 

@@ -74,6 +74,7 @@ class QASession:
     source_refs: tuple[str, ...] = ()
     confirmed: dict[str, object] = field(default_factory=dict)
     invalidated: tuple[str, ...] = ()
+    accepted_logo: dict[str, object] | None = None
     generation_backend: str = "host_builtin_image_tool"
     updated_at: str = ""
 

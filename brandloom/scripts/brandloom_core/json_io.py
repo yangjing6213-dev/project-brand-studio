@@ -1,7 +1,7 @@
 import json
 import os
 import types
-from dataclasses import fields, is_dataclass
+from dataclasses import MISSING, fields, is_dataclass
 from enum import Enum
 from pathlib import Path
 from typing import Any, Union, get_args, get_origin, get_type_hints
@@ -49,7 +49,17 @@ def _construct(data: Any, cls: type) -> Any:
     if cls not in _SUPPORTED:
         raise TypeError(f"unsupported dataclass type: {cls!r}")
     hints = get_type_hints(cls)
-    return cls(**{field.name: _from_json(data[field.name], hints[field.name]) for field in fields(cls)})
+    values = {}
+    for field in fields(cls):
+        if field.name in data:
+            values[field.name] = _from_json(data[field.name], hints[field.name])
+        elif field.default is not MISSING:
+            values[field.name] = field.default
+        elif field.default_factory is not MISSING:
+            values[field.name] = field.default_factory()
+        else:
+            raise KeyError(field.name)
+    return cls(**values)
 
 
 def write_json_dataclass(path: Path, value: Any) -> None:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
@@ -8,6 +9,7 @@ import unittest
 from PIL import Image
 
 from brandloom.scripts import brandloom_cli
+from brandloom.scripts.brandloom_core.manifests import build_generation_manifest
 from tests.font_test_utils import find_test_font
 
 
@@ -144,10 +146,16 @@ class PipelineTests(unittest.TestCase):
             output_dir.mkdir(parents=True)
             image = output_dir / "logo-card-1x1-v01.png"
             Image.new("RGBA", (2048, 2048), "white").save(image)
-            (output_dir / "generation-manifest-v01.json").write_text(json.dumps({
-                "output_type": "logo-card", "output": {"path": "logo-card-1x1-v01.png"}, "rendered_copy": {},
-                "assets": [{"asset_id": "natural-logo", "category": "company-logo", "rights_status": "user_authorized", "sha256": "fixture-logo-hash"}],
-            }), encoding="utf-8")
+            template = root / ".brandloom" / "template.json"; template.write_text('{"schema_version":"1.0","canvas":{},"slots":{}}')
+            base = root / ".brandloom" / "base.png"; Image.new("RGBA", (2048, 2048), "white").save(base)
+            logo = root / ".brandloom" / "logo.png"; Image.new("RGBA", (32, 32), "red").save(logo)
+            manifest = build_generation_manifest(
+                brief_path=root / ".brandloom" / "brand-brief.json",
+                assets=[{"asset_id": "natural-logo", "category": "company-logo", "scope": "project", "rights_status": "user_authorized", "path": str(logo), "sha256": hashlib.sha256(logo.read_bytes()).hexdigest()}],
+                template_path=template, font_paths={"heading": self._font()}, base_image_path=base,
+                output_path=image, qa_state="INTERNAL_LOGO_QA", rendered_copy={}, output_type="logo-card",
+            )
+            (output_dir / "generation-manifest-v01.json").write_text(json.dumps(manifest), encoding="utf-8")
             self.assertEqual(brandloom_cli.main(["validate", "--workspace", str(root), "--type", "logo-card"]), 0)
 
     def test_validate_blocks_manifest_without_canonical_copy_or_logo_hash(self) -> None:

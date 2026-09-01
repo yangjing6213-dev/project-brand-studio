@@ -201,9 +201,9 @@ def _asset_integrity(entry: object, *, base: Path | None) -> bool:
     return not digest or (isinstance(digest, str) and digest.lower() == str(observed).lower())
 
 
-def _host_request_integrity(value: object, *, base: Path | None) -> bool:
+def _host_request_integrity(value: object, *, base: Path | None, require_accepted_logo: bool = False) -> bool:
     if value is None:
-        return True
+        return False
     if not isinstance(value, Mapping) or value.get("backend") != "host_builtin_image_tool":
         return False
     references = value.get("reference_assets", [])
@@ -226,6 +226,8 @@ def _host_request_integrity(value: object, *, base: Path | None) -> bool:
         ):
             return False
     accepted = value.get("accepted_logo")
+    if require_accepted_logo and accepted is None:
+        return False
     if accepted is not None and not _entry_integrity(accepted, base=base):
         return False
     return True
@@ -290,34 +292,37 @@ def validate_output(
             failures.append(name)
 
     manifest_base = Path(manifest_path).resolve().parent if manifest_path is not None else None
-    strict_manifest = any(key in payload for key in ("brief", "template", "fonts", "base_image"))
-    if strict_manifest:
-        checks["manifest_brief"] = _entry_integrity(payload.get("brief"), base=manifest_base, expected_path=brief_path)
-        checks["manifest_template"] = _entry_integrity(payload.get("template"), base=manifest_base)
-        checks["manifest_base_image"] = _entry_integrity(payload.get("base_image"), base=manifest_base)
-        checks["manifest_output"] = _entry_integrity(payload.get("output"), base=manifest_base, expected_path=output)
-        fonts = payload.get("fonts")
-        checks["manifest_fonts"] = (
-            isinstance(fonts, Mapping)
-            and bool(fonts)
-            and all(_entry_integrity(entry, base=manifest_base) for entry in fonts.values())
-        )
-        assets = payload.get("assets")
-        checks["manifest_assets"] = (
-            isinstance(assets, list)
-            and bool(assets)
-            and all(_asset_integrity(entry, base=manifest_base) for entry in assets)
-        )
-        checks["manifest_host_request"] = _host_request_integrity(payload.get("host_request"), base=manifest_base)
-        output_entry = payload.get("output")
-        recorded_output = _recorded_path(output_entry.get("path"), manifest_base) if isinstance(output_entry, Mapping) else None
-        checks["output_manifest_path"] = recorded_output == output.resolve()
-    else:
-        for name in (
-            "manifest_brief", "manifest_template", "manifest_base_image", "manifest_output",
-            "manifest_fonts", "manifest_assets", "manifest_host_request", "output_manifest_path",
-        ):
-            checks[name] = True
+    checks["manifest_brief"] = _entry_integrity(payload.get("brief"), base=manifest_base, expected_path=brief_path)
+    checks["manifest_template"] = _entry_integrity(payload.get("template"), base=manifest_base)
+    checks["manifest_base_image"] = _entry_integrity(payload.get("base_image"), base=manifest_base)
+    checks["manifest_output"] = _entry_integrity(payload.get("output"), base=manifest_base, expected_path=output)
+    fonts = payload.get("fonts")
+    checks["manifest_fonts"] = (
+        isinstance(fonts, Mapping)
+        and bool(fonts)
+        and all(_entry_integrity(entry, base=manifest_base) for entry in fonts.values())
+    )
+    assets = payload.get("assets")
+    checks["manifest_assets"] = (
+        isinstance(assets, list)
+        and bool(assets)
+        and all(_asset_integrity(entry, base=manifest_base) for entry in assets)
+    )
+    requested_type = payload.get("output_type")
+    expected_type = str(output_type or "").replace("-", "_")
+    checks["manifest_output_type"] = (
+        isinstance(requested_type, str)
+        and bool(requested_type.strip())
+        and (not expected_type or requested_type.replace("-", "_") == expected_type)
+    )
+    checks["manifest_rendered_copy"] = isinstance(payload.get("rendered_copy"), Mapping)
+    checks["manifest_host_request"] = _host_request_integrity(
+        payload.get("host_request"), base=manifest_base,
+        require_accepted_logo=str(requested_type).replace("-", "_") == "cover",
+    )
+    output_entry = payload.get("output")
+    recorded_output = _recorded_path(output_entry.get("path"), manifest_base) if isinstance(output_entry, Mapping) else None
+    checks["output_manifest_path"] = recorded_output == output.resolve()
     if output_root is None:
         checks["output_contained"] = True
     else:
@@ -326,7 +331,7 @@ def validate_output(
     for name in (
         "manifest_brief", "manifest_template", "manifest_base_image", "manifest_output",
         "manifest_fonts", "manifest_assets", "manifest_host_request", "output_manifest_path",
-        "output_contained",
+        "manifest_output_type", "manifest_rendered_copy", "output_contained",
     ):
         if not checks[name]:
             failures.append(name)

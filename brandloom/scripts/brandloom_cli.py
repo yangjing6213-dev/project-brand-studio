@@ -5,7 +5,9 @@ from __future__ import annotations
 import argparse
 from dataclasses import replace
 from datetime import datetime, timezone
+import hashlib
 import json
+import re
 from pathlib import Path
 import sys
 from typing import Any
@@ -130,6 +132,11 @@ def _load_brief(workspace: Path) -> BrandBrief:
 def _load_session(workspace: Path) -> QASession:
     path = project_root(workspace) / "qa-state.json"
     payload = json.loads(path.read_text(encoding="utf-8"))
+    accepted_raw = payload.get("accepted_logo")
+    accepted_logo = None
+    if isinstance(accepted_raw, dict):
+        if all(isinstance(accepted_raw.get(key), str) and accepted_raw.get(key) for key in ("path", "sha256", "manifest_path")):
+            accepted_logo = {key: str(accepted_raw[key]) for key in ("path", "sha256", "manifest_path")}
     return QASession(
         schema_version=str(payload.get("schema_version", "1.0")),
         session_id=str(payload.get("session_id", "cli")),
@@ -140,6 +147,7 @@ def _load_session(workspace: Path) -> QASession:
         confirmed=dict(payload.get("confirmed", {})),
         invalidated=tuple(payload.get("invalidated", ())),
         generation_backend=str(payload.get("generation_backend", "host_builtin_image_tool")),
+        accepted_logo=accepted_logo,
         updated_at=str(payload.get("updated_at", "")),
     )
 
@@ -162,7 +170,10 @@ def _versioned_manifest(directory: Path) -> Path:
 
 def _manifest_documents(directory: Path) -> list[tuple[Path, dict[str, object]]]:
     documents: list[tuple[Path, dict[str, object]]] = []
-    for path in sorted(directory.glob("generation-manifest-v*.json")):
+    def version(path: Path) -> int:
+        match = re.search(r"generation-manifest-v(\d+)\.json$", path.name, flags=re.IGNORECASE)
+        return int(match.group(1)) if match else -1
+    for path in sorted(directory.glob("generation-manifest-v*.json"), key=lambda item: (version(item), item.name)):
         payload = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(payload, dict):
             raise ValueError(f"generation manifest must be a mapping: {path}")
@@ -257,14 +268,29 @@ def _compose(args: argparse.Namespace) -> int:
     dimensions = validate_generated_path(base_path, expected=prompt_type)
     skill_root = Path(__file__).resolve().parents[1]
     accepted_logo_path = None
+    accepted_logo_evidence = None
     if args.type == "cover":
-        logo_manifest_path, logo_manifest = _latest_manifest(output_dir, "logo-card")
-        accepted_logo_path = _manifest_output_path(logo_manifest_path, logo_manifest)
+        accepted_logo_evidence = session.accepted_logo
+        if not isinstance(accepted_logo_evidence, dict):
+            raise ValueError("cover composition requires accepted logo evidence")
+        accepted_logo_path = Path(str(accepted_logo_evidence.get("path", ""))).resolve()
+        accepted_manifest_path = Path(str(accepted_logo_evidence.get("manifest_path", ""))).resolve()
+        digest = str(accepted_logo_evidence.get("sha256", ""))
+        if not accepted_logo_path.is_file() or not accepted_manifest_path.is_file() or len(digest) != 64:
+            raise ValueError("accepted logo evidence is incomplete")
+        if hashlib.sha256(accepted_logo_path.read_bytes()).hexdigest() != digest.lower():
+            raise ValueError("accepted logo output changed after review")
+        accepted_manifest = json.loads(accepted_manifest_path.read_text(encoding="utf-8"))
+        if not isinstance(accepted_manifest, dict) or str(accepted_manifest.get("output_type", "")).replace("-", "_") != "logo_card":
+            raise ValueError("accepted logo manifest is invalid")
+        if _manifest_output_path(accepted_manifest_path, accepted_manifest) != accepted_logo_path:
+            raise ValueError("accepted logo evidence does not match manifest")
     host_request = build_host_request(
         brief,
         prompt_type,
         expected=dimensions,
         accepted_logo_path=accepted_logo_path,
+        accepted_logo_evidence=accepted_logo_evidence,
         skill_root=skill_root,
     )
     template = skill_root / ("templates/logo-card-1x1.json" if args.type == "logo-card" else "templates/cover-2x1.json")
@@ -277,8 +303,13 @@ def _compose(args: argparse.Namespace) -> int:
     )
     if logo is None:
         raise ValueError("an authorized company-logo is required")
-    mark_absent = "project_mark" in brief.assets and brief.assets.get("project_mark") in (None, False, "", "none")
-    explicit_mark = brief.assets.get("project_mark")
+    mark_value = brief.assets.get("project_mark")
+    mark_absent = "project_mark" in brief.assets and mark_value in (None, False, "", "none")
+    if "project_mark" in brief.assets and not mark_absent and not isinstance(mark_value, str):
+        raise ValueError("project_mark must be a valid asset ID or explicit none")
+    if "project_mark" not in brief.assets and resolve_asset(AssetCategory.PROJECT_MARK, workspace=workspace, skill_root=skill_root) is None:
+        raise ValueError("project_mark selection is unresolved")
+    explicit_mark = mark_value
     mark = None if mark_absent else resolve_asset(
         AssetCategory.PROJECT_MARK,
         workspace=workspace,
@@ -307,6 +338,8 @@ def _compose(args: argparse.Namespace) -> int:
         host_request=host_request,
     )
     write_manifest(_versioned_manifest(output_dir), manifest)
+    if args.type == "logo-card":
+        next_session = replace(next_session, accepted_logo=None)
     _write_session(root / "qa-state.json", next_session)
     print(result.output_path)
     return 0
@@ -384,7 +417,16 @@ def _deliver(args: argparse.Namespace) -> int:
         return 2
     if not report.passed:
         return 2
-    _write_session(project_root(workspace) / "qa-state.json", advance(session, target_state))
+    next_session = advance(session, target_state)
+    if args.type == "logo-card":
+        directory = project_output_dir(workspace, safe_project_slug(_load_brief(workspace).project.get("slug", "project")))
+        manifest_path, payload = _latest_manifest(directory, "logo-card")
+        output_path = _manifest_output_path(manifest_path, payload)
+        if not output_path.is_file():
+            return 2
+        evidence = {"path": str(output_path.resolve()), "sha256": hashlib.sha256(output_path.read_bytes()).hexdigest(), "manifest_path": str(manifest_path.resolve())}
+        next_session = replace(next_session, accepted_logo=evidence)
+    _write_session(project_root(workspace) / "qa-state.json", next_session)
     return 0
 
 

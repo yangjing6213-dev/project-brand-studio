@@ -115,6 +115,7 @@ def build_host_request(
     shot_list=None,
     expected=None,
     accepted_logo_path: Path | None = None,
+    accepted_logo_evidence: dict[str, object] | None = None,
     skill_root: Path | None = None,
 ) -> dict[str, object]:
     """Build a JSON-safe host request without invoking an image tool."""
@@ -136,7 +137,13 @@ def build_host_request(
         "prompt": build_base_prompt(brief, output_type, shot_list=shot_list, expected=expected),
         "reference_assets": references,
     }
-    if accepted_logo_path is not None:
+    if accepted_logo_evidence is not None:
+        accepted = dict(accepted_logo_evidence)
+        path = Path(str(accepted.get("path", ""))).resolve()
+        validate_generated_path(path, expected="logo_card")
+        accepted["path"] = str(path)
+        request["accepted_logo"] = accepted
+    elif accepted_logo_path is not None:
         accepted = Path(accepted_logo_path).resolve()
         validate_generated_path(accepted, expected="logo_card")
         request["accepted_logo"] = {"path": str(accepted), "sha256": _sha256(accepted)}
