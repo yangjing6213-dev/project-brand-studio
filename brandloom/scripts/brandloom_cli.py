@@ -268,12 +268,15 @@ def _compose(args: argparse.Namespace) -> int:
     skill_root = Path(__file__).resolve().parents[1]
     accepted_logo_path = None
     accepted_logo_evidence = None
+    accepted_manifest = None
+    accepted_manifest_path = None
     if args.type == "cover":
         accepted_logo_evidence = session.accepted_logo
         if not validate_accepted_logo_evidence(accepted_logo_evidence):
             raise ValueError("cover composition requires accepted logo evidence")
         accepted_logo_path = Path(str(accepted_logo_evidence.get("path", ""))).resolve()
         accepted_manifest_path = Path(str(accepted_logo_evidence["manifest_path"]))
+        accepted_manifest = json.loads(accepted_manifest_path.read_text(encoding="utf-8"))
     host_request = build_host_request(
         brief,
         prompt_type,
@@ -310,6 +313,10 @@ def _compose(args: argparse.Namespace) -> int:
         skill_root=skill_root,
     )
     root = project_root(workspace)
+    if args.type == "cover":
+        accepted_report = validate_output(accepted_logo_path, manifest=accepted_manifest, brief=brief, output_type="logo_card", manual_visual_checks=True, manifest_path=accepted_manifest_path, output_root=root / "outputs")
+        if not accepted_report.passed:
+            raise ValueError("accepted logo manifest is no longer valid")
     asset_paths = {"company_logo": logo.path}
     used_assets = [_asset_manifest_entry(logo)]
     if mark is not None:
@@ -416,17 +423,28 @@ def _deliver(args: argparse.Namespace) -> int:
     target_state = QAState.GENERATE_COVER_BASE if args.type == "logo-card" else QAState.DELIVERED
     if session.state is not expected_state:
         return 2
-    try:
-        report = _output_qa_report(args, manual_visual_checks=True)
-    except (FileNotFoundError, ValueError, TypeError, json.JSONDecodeError):
-        return 2
-    if not report.passed:
-        return 2
-    next_session = advance(session, target_state)
     if args.type == "logo-card":
-        expected_slug = safe_project_slug(args.slug) if args.slug else None
-        if not validate_accepted_logo_evidence(session.accepted_logo, expected_slug=expected_slug):
+        if not validate_accepted_logo_evidence(session.accepted_logo, expected_slug=safe_project_slug(args.slug) if args.slug else None):
             return 2
+        evidence = session.accepted_logo
+        assert isinstance(evidence, dict)
+        manifest_path = Path(str(evidence["manifest_path"]))
+        output_path = Path(str(evidence["path"]))
+        try:
+            payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+            report = validate_output(output_path, manifest=payload, output_type="logo_card", manual_visual_checks=True, manifest_path=manifest_path, output_root=project_root(workspace) / "outputs")
+        except (FileNotFoundError, ValueError, TypeError, json.JSONDecodeError):
+            return 2
+        if not report.passed:
+            return 2
+    else:
+        try:
+            report = _output_qa_report(args, manual_visual_checks=True)
+        except (FileNotFoundError, ValueError, TypeError, json.JSONDecodeError):
+            return 2
+        if not report.passed:
+            return 2
+    next_session = advance(session, target_state)
     _write_session(project_root(workspace) / "qa-state.json", next_session)
     return 0
 

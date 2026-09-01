@@ -73,6 +73,19 @@ class Task2ContractTests(unittest.TestCase):
             self.assertIsInstance(session.get("accepted_logo"), dict)
             self.assertIn("manifest_sha256", session["accepted_logo"])
 
+    def test_later_unreviewed_manifest_and_slug_mismatch_cannot_replace_candidate(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp); brandloom_cli.main(["init", "--workspace", str(root)])
+            logo = self._asset(root, "logo.png", (100, 40), (10, 20, 30, 255))
+            brandloom_cli.main(["asset-add", "--workspace", str(root), "--source", str(logo), "--category", "company-logo", "--scope", "project", "--rights", "user_authorized", "--save-confirmed", "--make-default"])
+            self._ready_brief(root, {"project_mark": None}); base = self._asset(root, "base.png", (2048, 2048), (255,255,255,255))
+            brandloom_cli.main(["compose", "--workspace", str(root), "--type", "logo-card", "--base", str(base)]); brandloom_cli.main(["validate", "--workspace", str(root), "--type", "logo-card"])
+            out = root / ".brandloom" / "outputs" / "demo"; first = out / "generation-manifest-v01.json"; (out / "generation-manifest-v02.json").write_bytes(first.read_bytes())
+            self.assertEqual(brandloom_cli.main(["deliver", "--workspace", str(root), "--type", "logo-card", "--reviewed", "--slug", "other"]), 2)
+            self.assertEqual(brandloom_cli.main(["deliver", "--workspace", str(root), "--type", "logo-card", "--reviewed"]), 0)
+            evidence = json.loads((root / ".brandloom" / "qa-state.json").read_text())["accepted_logo"]
+            self.assertTrue(evidence["manifest_path"].endswith("generation-manifest-v01.json"))
+
     def test_generation_manifest_latest_uses_numeric_version(self):
         with tempfile.TemporaryDirectory() as temp:
             directory = Path(temp)

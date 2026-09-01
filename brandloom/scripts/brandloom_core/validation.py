@@ -245,7 +245,9 @@ def _host_request_integrity(value: object, *, base: Path | None, require_accepte
         return False
     if not isinstance(value.get("dimensions"), list) or tuple(value["dimensions"]) != expected_dimensions or not isinstance(value.get("prompt"), str) or not value["prompt"]:
         return False
-    references = value.get("reference_assets", [])
+    if "reference_assets" not in value:
+        return False
+    references = value["reference_assets"]
     if not isinstance(references, list):
         return False
     for entry in references:
