@@ -10,6 +10,7 @@ from typing import Mapping
 
 from PIL import Image, ImageCms, ImageColor, ImageDraw, ImageFont
 
+from .fonts import missing_glyphs
 from .layout import TextLayout, TextOverflowError, fit_text_box
 from .models import BrandBrief
 
@@ -27,6 +28,7 @@ class RenderResult:
     logo_size: tuple[int, int] = (0, 0)
     template_id: str = ""
     rendered_copy: dict[str, object] = field(default_factory=dict)
+    logo_treatment: str = "default"
 
 
 def load_template(path: Path) -> dict[str, object]:
@@ -68,6 +70,36 @@ def _fit(image: Image.Image, width: int, height: int) -> tuple[Image.Image, tupl
     scale = min(width / image.width, height / image.height)
     size = (max(1, round(image.width * scale)), max(1, round(image.height * scale)))
     return image.resize(size, Image.Resampling.LANCZOS), size
+
+
+def _apply_logo_treatment(image: Image.Image, treatment: str) -> Image.Image:
+    if treatment == "default":
+        return image
+    if treatment != "monochrome-black":
+        raise BrandIntegrityError(f"unsupported company logo treatment: {treatment}")
+    # Keep the source alpha channel (and therefore its geometry) byte-for-byte;
+    # only replace visible RGB channels at composition time.
+    alpha = image.getchannel("A")
+    black = Image.new("RGBA", image.size, (0, 0, 0, 0))
+    black.putalpha(alpha)
+    return black
+
+
+def _selected_logo_treatment(brief: BrandBrief | Mapping[str, object], explicit: str | None) -> str:
+    if explicit is not None:
+        selected = explicit
+    elif isinstance(brief, BrandBrief):
+        selected = brief.assets.get("company_logo_treatment", brief.assets.get("logo_treatment", "default"))
+    else:
+        assets = brief.get("assets", {})
+        selected = assets.get("company_logo_treatment", assets.get("logo_treatment", "default")) if isinstance(assets, Mapping) else "default"
+    if selected in (None, ""):
+        return "default"
+    if not isinstance(selected, str):
+        raise BrandIntegrityError("company logo treatment must be a JSON string")
+    if selected not in {"default", "monochrome-black"}:
+        raise BrandIntegrityError(f"unsupported company logo treatment: {selected}")
+    return selected
 
 
 def _slot(payload: Mapping[str, object], name: str) -> dict[str, int]:
@@ -119,6 +151,7 @@ def render_brand_asset(
     asset_paths: Mapping[str, Path | Image.Image],
     font_paths: Mapping[str, Path | str],
     output_dir: Path,
+    logo_treatment: str | None = None,
 ) -> RenderResult:
     template = load_template(template_path)
     canvas = template["canvas"]
@@ -128,6 +161,7 @@ def render_brand_asset(
     if background.size != (width, height):
         background = background.resize((width, height), Image.Resampling.LANCZOS)
     output = background.convert("RGBA")
+    selected_treatment = _selected_logo_treatment(brief, logo_treatment)
     hashes: dict[str, str] = {}
     template_file = Path(template_path)
     if template_file.is_file():
@@ -140,6 +174,7 @@ def render_brand_asset(
         if digest:
             hashes["company_logo"] = digest
         slot = _slot(template["slots"], "company_logo")  # type: ignore[arg-type]
+        logo = _apply_logo_treatment(logo, selected_treatment)
         fitted, logo_size = _fit(logo, int(slot["w"]), int(slot["h"]))
         x = int(slot["x"]) + (int(slot["w"]) - fitted.width) // 2
         y = int(slot["y"]) + (int(slot["h"]) - fitted.height) // 2
@@ -176,6 +211,10 @@ def render_brand_asset(
         if isinstance(font_path, (str, Path)) and Path(font_path).is_file():
             hashes.setdefault(f"font_{role}", _sha(Path(font_path)))
         text = "\n".join(f"• {item}" for item in value) if key == "features" else str(value)
+        missing = missing_glyphs(font_path, text)
+        if missing:
+            chars = " ".join(repr(char) for char in missing)
+            raise BrandIntegrityError(f"confirmed {role} font cannot render copy characters: {chars}; select a CJK-capable font")
         layout = fit_text_box(
             text,
             (int(slot["w"]), int(slot["h"])),
@@ -196,4 +235,4 @@ def render_brand_asset(
     output = output.convert("RGBA")
     srgb_profile = ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes()
     output.save(destination, format="PNG", icc_profile=srgb_profile)
-    return RenderResult(destination, width, height, hashes, logo_size, stem, rendered_copy)
+    return RenderResult(destination, width, height, hashes, logo_size, stem, rendered_copy, selected_treatment)

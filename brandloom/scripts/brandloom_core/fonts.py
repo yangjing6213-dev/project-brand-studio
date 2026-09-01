@@ -42,6 +42,18 @@ class FontNotFoundError(LookupError):
     """Raised when a confirmed font profile role cannot be resolved."""
 
 
+def missing_glyphs(font_path: Path | str, text: str, *, size: int = 32) -> tuple[str, ...]:
+    """Return non-ASCII characters that resolve to the font's missing-glyph mask."""
+    font = ImageFont.truetype(str(font_path), size=size)
+
+    def signature(value: str) -> tuple[tuple[int, int], bytes]:
+        mask = font.getmask(value)
+        return (mask.size, bytes(mask))
+
+    missing_signatures = {signature(value) for value in ("\ufffd", "\u25a1", "?")}
+    return tuple(dict.fromkeys(char for char in text if ord(char) > 127 and signature(char) in missing_signatures))
+
+
 def _preset_path() -> Path:
     return Path(__file__).resolve().parents[2] / "references" / "font-presets.json"
 

@@ -76,6 +76,8 @@ def build_generation_manifest(
     base_prompt: str | None = None,
     image_tool_returned_path: Path | str | None = None,
     host_request: Mapping[str, object] | None = None,
+    logo_treatment: str | None = None,
+    logo_source_hash: str | None = None,
 ) -> dict[str, object]:
     """Build a JSON-safe manifest without retaining secrets or conversation text."""
     fonts = {
@@ -102,6 +104,10 @@ def build_generation_manifest(
     if image_tool_returned_path is not None:
         # Preserve the host tool's returned string verbatim for auditability.
         manifest["image_tool_returned_path"] = str(image_tool_returned_path)
+    if logo_treatment is not None:
+        manifest["logo_treatment"] = str(logo_treatment)
+    if logo_source_hash is not None:
+        manifest["logo_source_hash"] = str(logo_source_hash)
     return manifest
 
 

@@ -330,8 +330,11 @@ def _compose(args: argparse.Namespace) -> int:
         if isinstance(reference, dict):
             used_assets.append(dict(reference))
     font_paths = _resolve_font_paths(brief)
+    logo_treatment = brief.assets.get("company_logo_treatment", brief.assets.get("logo_treatment"))
+    if logo_treatment is not None and not isinstance(logo_treatment, str):
+        raise ValueError("company_logo_treatment must be a JSON string")
     result = render_brand_asset(template, brief, base_image=base_path, asset_paths=asset_paths,
-                                font_paths=font_paths, output_dir=output_dir)
+                                font_paths=font_paths, output_dir=output_dir, logo_treatment=logo_treatment)
     next_session = _post_compose_session(session, args.type)
     manifest = build_generation_manifest(
         brief_path=root / "brand-brief.json", assets=used_assets, template_path=template,
@@ -340,6 +343,8 @@ def _compose(args: argparse.Namespace) -> int:
         rendered_copy=result.rendered_copy, output_type=args.type,
         base_prompt=str(host_request["prompt"]), image_tool_returned_path=args.base,
         host_request=host_request,
+        logo_treatment=result.logo_treatment,
+        logo_source_hash=result.source_hashes.get("company_logo"),
     )
     write_manifest(_versioned_manifest(output_dir), manifest)
     if args.type == "logo-card":
