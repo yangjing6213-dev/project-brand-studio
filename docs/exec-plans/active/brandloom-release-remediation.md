@@ -43,7 +43,7 @@ Close the final BrandLoom Critical and Important release blockers under the user
 ## Task Plan
 | ID | Objective | Files likely affected | Acceptance criteria | Verification | Dependencies | Status |
 |---|---|---|---|---|---|---|
-| T1 | Enforce affirmative, state-bound QA confirmations | `state_machine.py`, `models.py`, CLI, state/pipeline tests, workflow docs | `"no"` and raw strings fail; unknown/out-of-order keys fail; legal confirmed flow reaches ready; invalidation still works | focused state/pipeline RED→GREEN, full unittest, diff/status, review | none | pending |
+| T1 | Enforce affirmative, state-bound QA confirmations | `state_machine.py`, `models.py`, CLI, state/pipeline tests, workflow docs | `"no"` and raw strings fail; unknown/out-of-order keys fail; legal confirmed flow reaches ready; invalidation still works | focused state/pipeline RED→GREEN, full unittest, diff/status, review | none | verified |
 | T2 | Close manifest, accepted-logo, project-mark, and version gaps | validation/manifests/prompt/CLI/models, localization/pipeline tests | incomplete manifests fail; tampered accepted logo blocks cover; unresolved requested mark blocks; v100 wins; collision test isolated | focused localization/pipeline RED→GREEN, full unittest, diff/status, review | T1 | pending |
 | T3 | Integrate the four new exact assets with truthful provenance | default asset profiles, prompt references, package/profile tests, NOTICE | only after explicit authorization; all four exact hashes represented without redraw/overwrite; appearance vs geometry roles explicit; package builder accepts truthful provenance | image/hash/provenance tests, visual inspection, full unittest, package audit, review | T2 + explicit new-file authorization | blocked |
 | T4 | Re-run acceptance, package, and final review | tests, ignored workspaces, active plan/ledger, dist | negative exploit fails, two workspaces satisfy code-level flows, package deterministic, final reviewer finds no Critical/Important | full verification, double build, ZIP audit, manual views, final review | T1–T3 | pending |
@@ -84,19 +84,21 @@ Close the final BrandLoom Critical and Important release blockers under the user
 - Apply verification-before-completion, update plan/ledger with exact evidence and SHAs, and use finishing-a-development-branch to present merge/keep options without merging, pushing, releasing, or publishing.
 
 ## Completed + Verified
-- Baseline only: 106/106 tests passed; worktree and runtime verified.
+- Baseline: 106/106 tests passed; worktree and runtime verified.
+- Task 1: strict state-bound affirmative confirmations implemented in `3bd2873`; review fix `120a552` completed the full custom flow test. Focused state 17/17, pipeline 16/16, full 114/114, compileall and diff/status checks passed; independent re-review marked the Important finding ADDRESSED with no new Critical/Important breakage.
 
 ## Current Work
-- Preflight reconciliation and Task 1 dispatch preparation.
+- Task 2 dispatch preparation.
 
 ## Remaining Work
-- Tasks 1–4 above.
+- Tasks 2–4 above.
 
 ## Failures
 - Prior branch verdict is `FAIL`: one Critical and three Important release blockers remain at starting HEAD.
 
 ## Evidence
 - `python -m unittest discover -s tests -p "test_*.py" -v` -> 106/106 PASS at starting HEAD.
+- Task 1 -> commits `3bd2873f79871e0933733425af8d6f9290650f16`, `120a552f3389359242240b2dcd44284028d27637`; full unittest 114/114 PASS; independent task review completed after fix round 1.
 - Incoming hashes: pair front `0754c7c51b225e57949bd77cb80eb32195ffc6d81151fe495d9ed1fde1ebbc21`; Xingbi five views `6c6fbc39b45ec8b7fd7dc6883dbb13464772fad5c5c57659ac7158de235850d9`; Tuotuo five views `cace50cd0e54c6180ceda2cb2797dc2fd61746fefc09a9bf64b19e008f017e46`; white ENHE logo `9e6b890cc043029fcf629684cf38c944376c879737c559772854cbe807dd972a`.
 
 ## Important Decisions
