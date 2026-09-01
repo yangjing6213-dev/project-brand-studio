@@ -50,7 +50,9 @@ def missing_glyphs(font_path: Path | str, text: str, *, size: int = 32) -> tuple
         mask = font.getmask(value)
         return (mask.size, bytes(mask))
 
-    missing_signatures = {signature(value) for value in ("\ufffd", "\u25a1", "?")}
+    # Include permanently/unassigned codepoints so fonts with a distinct .notdef
+    # mask are still detected (some fonts do not match U+FFFD or '?').
+    missing_signatures = {signature(value) for value in ("\ufffd", "\u25a1", "?", "\u0378", "\U0001f600")}
     return tuple(dict.fromkeys(char for char in text if ord(char) > 127 and signature(char) in missing_signatures))
 
 

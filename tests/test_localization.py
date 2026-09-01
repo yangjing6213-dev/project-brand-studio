@@ -79,12 +79,14 @@ class LocalizationAndQATests(unittest.TestCase):
             english = self._brief("Brand title", "English subtitle")
             english_copy_before = dict(english.copy)
             chinese = localize_brief(english, language="zh-CN", copy={"title": "品牌标题", "subtitle": "中文副标题"})
-            # CJK acceptance requires an explicitly selected capable font.
-            msyh = Path(r"C:\Windows\Fonts\msyh.ttc")
-            chinese = BrandBrief(chinese.schema_version, chinese.project, chinese.copy, chinese.style,
-                                 {"heading": str(msyh), "body": str(msyh)}, chinese.assets, chinese.outputs)
             en = render_brand_asset(Path("brandloom/templates/logo-card-1x1.json"), english, base_image=base, asset_paths=assets,
                                     font_paths={"heading": self._font(), "body": self._font()}, output_dir=root / "en")
+            # CJK acceptance requires an explicitly selected capable font.
+            msyh = Path(r"C:\Windows\Fonts\msyh.ttc")
+            if not msyh.is_file():
+                self.skipTest("Microsoft YaHei is not installed on this platform")
+            chinese = BrandBrief(chinese.schema_version, chinese.project, chinese.copy, chinese.style,
+                                 {"heading": str(msyh), "body": str(msyh)}, chinese.assets, chinese.outputs)
             zh = render_brand_asset(Path("brandloom/templates/logo-card-1x1.json"), chinese, base_image=base, asset_paths=assets,
                                     font_paths={"heading": msyh, "body": msyh}, output_dir=root / "zh")
             en_manifest = build_generation_manifest(brief_path=root / "en.json", assets=[{"asset_id": "logo", "sha256": _sha(logo)}],
