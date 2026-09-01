@@ -7,7 +7,7 @@ Close the final BrandLoom Critical and Important release blockers under the user
 - Requirements: fix affirmative confirmation semantics and state ordering; make production manifest validation fail closed; bind cover generation to the exact user-accepted logo hash; require an explicit no-project-mark choice when no mark resolves; sort manifest versions numerically; isolate the collision regression test; verify the complete package and two workspace flows.
 - Authority: `docs/superpowers/specs/2026-08-31-brandloom-design.md`, the existing BrandLoom implementation plan, the final scoped-review findings recorded in `docs/exec-plans/active/brandloom-implementation.md`, and the user-approved方案 2.
 - Constraints: Python >=3.12; only runtime dependency `Pillow==12.3.0`; JSON runtime state; deterministic Pillow text/logo composition; no company-logo redraw or geometry change; no Push, merge, release, deployment, paid/external image call, secret access, or tracked staging/runtime outputs.
-- Asset constraint: the new four exact files may be inspected read-only, but their earlier three-file authorization and provenance do not transfer. No file may enter `brandloom/assets/defaults/` or the public ZIP until the user explicitly authorizes these four exact hashes for `public_skill_package` distribution.
+- Asset constraint: the four exact files entered the public package only after the user explicitly authorized these exact hashes for `public_skill_package` distribution at `2026-09-01T16:49:10.1239046+08:00`; all copies remain byte-identical and provenance-backed.
 - Acceptance Criteria: each code task has observed RED then GREEN evidence, focused and full unittest, diff/status checks, a commit, and an independent task review; final verification includes full unittest, compileall, deterministic double build, ZIP audit, negative exploit reproduction, two offline workspaces, and an independent whole-branch review.
 - Deliverables: strict confirmation schema and transition enforcement; strict manifest/logo/mark/version behavior; tests and docs; optionally updated authorized default assets/provenance; deterministic `dist/brandloom.zip`.
 - Non-goals: new image provider, AI redraw, custom-dimension/variant CLI expansion, public publishing, or migration that silently blesses legacy ambiguous confirmations.
@@ -30,7 +30,7 @@ Close the final BrandLoom Critical and Important release blockers under the user
 - Starting HEAD: `53d3fa1f24fc20df6ea5396692608599085ee0a7`; tracked status clean.
 - Runtime: Python 3.12.13 and Pillow 12.3.0.
 - Baseline: full discovery 106/106 passed before this remediation.
-- Incoming ignored files exist under `staging/brand-assets/incoming/`; hashes and visual inspection are recorded in the plan ledger. Public-package authorization is pending.
+- Incoming ignored files exist under `staging/brand-assets/incoming/`; hashes, visual inspection, and the explicit public-package authorization are recorded in the plan ledger. Public copies are versioned under `brandloom/assets/defaults/` and the incoming directory remains excluded from Git and the ZIP.
 
 ## Preflight Rulings
 - R1: use exact boolean `true` for confirmation-only keys instead of a negative-string denylist or a new envelope API. The selected/custom content remains in `BrandBrief`, while the QA session records only the affirmative event. Cost if wrong: legacy sessions that stored descriptive strings must reconfirm, but no ambiguous string is silently trusted.
@@ -46,7 +46,7 @@ Close the final BrandLoom Critical and Important release blockers under the user
 | T1 | Enforce affirmative, state-bound QA confirmations | `state_machine.py`, `models.py`, CLI, state/pipeline tests, workflow docs | `"no"` and raw strings fail; unknown/out-of-order keys fail; legal confirmed flow reaches ready; invalidation still works | focused state/pipeline RED→GREEN, full unittest, diff/status, review | none | verified |
 | T2 | Close manifest, accepted-logo, project-mark, and version gaps | validation/manifests/prompt/CLI/models, localization/pipeline tests | incomplete manifests fail; tampered accepted logo blocks cover; unresolved requested mark blocks; v100 wins; collision test isolated | focused localization/pipeline RED→GREEN, full unittest, diff/status, review | T1 | verified |
 | T3 | Integrate the four new exact assets with truthful provenance | default asset profiles, prompt references, package/profile tests, NOTICE | only after explicit authorization; all four exact hashes represented without redraw/overwrite; appearance vs geometry roles explicit; package builder accepts truthful provenance | image/hash/provenance tests, visual inspection, full unittest, package audit, review | T2 + explicit new-file authorization | verified |
-| T4 | Re-run acceptance, package, and final review | tests, ignored workspaces, active plan/ledger, dist | negative exploit fails, two workspaces satisfy code-level flows, package deterministic, final reviewer finds no Critical/Important | full verification, double build, ZIP audit, manual views, final review | T1–T3 | pending |
+| T4 | Re-run acceptance, package, and final review | tests, ignored workspaces, active plan/ledger, dist | negative exploit fails, two workspaces satisfy code-level flows, package deterministic, final reviewer finds no Critical/Important | full verification, double build, ZIP audit, manual views, final review | T1–T3 | verified |
 
 ### Task 1: Enforce affirmative, state-bound QA confirmations
 
@@ -102,18 +102,22 @@ Close the final BrandLoom Critical and Important release blockers under the user
 - Task 2 -> implementation/fix commits `b238de5`, `b4b9831`, `773d020`, `d69fbd9`, `a7968b9`, `a353d37`, `c4484b6` (plus ignored-report cleanup `a95512b`); focused 16/16, related 54/54, full 131/131, compileall and diff/status passed; five-round independent review closed all Critical/Important findings.
 - Incoming hashes: pair front `0754c7c51b225e57949bd77cb80eb32195ffc6d81151fe495d9ed1fde1ebbc21`; Xingbi five views `6c6fbc39b45ec8b7fd7dc6883dbb13464772fad5c5c57659ac7158de235850d9`; Tuotuo five views `cace50cd0e54c6180ceda2cb2797dc2fd61746fefc09a9bf64b19e008f017e46`; white ENHE logo `9e6b890cc043029fcf629684cf38c944376c879737c559772854cbe807dd972a`.
 - Task 4 evidence: all-`"no"` exploit rejected (`GenerationGateError`); full unittest `137/137 PASS`; compileall and `git diff --check` PASS; deterministic double ZIP SHA-256 `6ff681d53bcc43b62e35b22a908bd5b24317cd74426e7f2de695f2745d72c405`, 59 entries, 8-image provenance/decode audit PASS; Acceptance A workspace `.brandloom/task4-accept-a-ip1xzgkd` code-level PASS through `DELIVERED`; Acceptance B workspace `.brandloom/task4-accept-b-baf9vu25` localization code-level PASS with English v01 preserved and Chinese v02 paths; host image generation not invoked (visual acceptance PARTIAL). See ignored `.superpowers/sdd/brandloom-release-remediation/task-4-report.md`.
+- Task 4 final independent whole-branch review: fresh review from HEAD `993928cdff72538bdec92ad98c3e5b7b0d2e9228`, report `.superpowers/sdd/2026-08-31-brandloom-implementation/final-branch-review.md`, found no Critical/Important implementation findings; verdict `PARTIAL` solely because host visual generation and composition-level visual review were not run under the no-external-call constraint. Three other reviewer dispatches hit service 429 and were not treated as evidence.
 
 ## Important Decisions
 - Do not infer public rights from file placement.
 - Keep code remediation and asset replacement as separate review surfaces.
 - Prefer failing closed over legacy compatibility for release validation.
+- Host image generation is intentionally unverified: no external or potentially paid provider was called, so visual acceptance remains `PARTIAL` even though deterministic offline composition and manual output inspection were completed.
 
 ## Open Risks
 - The IP pair front is a 2D transparent illustration while both five-view sheets are 3D turnarounds; the prompt/reference roles intentionally keep them from becoming contradictory appearance guidance.
 - The new white ENHE file has no ICC profile and retains its exact transparent edge/texture treatment; it is opt-in and still requires composition-level contrast review rather than automatic fallback use.
+- The offline acceptance font rendered Chinese glyphs as tofu in the available test environment; manifest text is preserved as UTF-8 and this is included in the visual `PARTIAL` status, not hidden as a pass.
 
 ## Final Acceptance
 - Status: PARTIAL
 - Requirements verified: strict gate rejection, full automated checks, deterministic package and ZIP audit, both offline code-level acceptance flows, and exact authorized asset provenance.
-- Not verified: host visual generation and independent whole-branch final review.
-- Remaining risks: white ENHE contrast and visual composition require host/manual review; visual acceptance remains PARTIAL.
+- Not verified: host visual generation and composition-level visual review.
+- Verified: independent whole-branch review at `993928c` found no Critical/Important implementation findings; all offline/package checks passed.
+- Remaining risks: white ENHE contrast, CJK font availability, and visual composition require host/manual review; visual acceptance remains PARTIAL.

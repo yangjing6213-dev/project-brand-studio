@@ -49,15 +49,18 @@ Build the installable `brandloom` Codex Skill in repository `project-brand-studi
 - T11 localization and QA: final amended commit `b2f5cf6`; fresh focused localization+pipeline 16/16 and full 66/66, independent review plus two scoped fix re-reviews approved (canonical copy, brief boundary, Social Preview, and shared delivery QA addressed).
 - T12 release package: commits `0f9077f`, `9247d99`, `b3c025c`, `05afb8d`; fresh focused 13/13 and full 79/79, deterministic ZIP SHA-256 `b775b826...f56f`, independent review plus three scoped fix re-reviews approved.
 - Final concentrated review fix: commit `a7ac128fa73f99da48ab487eb01766647c237e8e`; 106/106 tests and deterministic 50-entry ZIP SHA-256 `2ba74d5ba3a5f0e3dd6d85f9b8465cb8de136361da1e5535219a0df562996903` passed. The one permitted scoped re-review still found one Critical and three Important residuals, so the branch is not merge-ready.
+- Remediation Task 1: commits `3bd2873f79871e0933733425af8d6f9290650f16`, `120a552f3389359242240b2dcd44284028d27637`; strict state-bound confirmations and complete custom flow, full 114/114.
+- Remediation Task 2: commits `b238de5`, `b4b9831`, `773d020`, `d69fbd9`, `a7968b9`, `a353d37`, `c4484b6` (bookkeeping `91bee68`); fail-closed manifests, accepted-logo binding, project-mark and numeric-version fixes, full 131/131 at completion and 137/137 after asset tests.
+- Remediation Task 3: commit `c9cf676955330d864ca6241dd15010a110ec2000`; four explicitly authorized exact assets integrated byte-for-byte with versioned provenance and appearance/geometry roles; full 137/137 and package audit passed.
+- Remediation Task 4: evidence/plan commit `993928cdff72538bdec92ad98c3e5b7b0d2e9228`; all-`"no"` exploit rejected, full 137/137, deterministic 59-entry ZIP, and two offline workspaces reached `DELIVERED`. Independent whole-branch review report `.superpowers/sdd/2026-08-31-brandloom-implementation/final-branch-review.md` found no Critical/Important implementation findings. Host image generation was intentionally not invoked, so visual acceptance remains PARTIAL.
 
 ## Current Work
-- Tasks 1–12 are implemented, committed, and individually reviewed. The full-branch review, single concentrated fix, single scoped re-review, two final offline workspace acceptance runs, package build, and final verification have been executed.
-- Overall status is `FAIL`: automated tests and packaging pass, but the scoped re-review found a bypassable generation confirmation gate plus three integrity/selection defects.
+- Original Tasks 1–12 and remediation Tasks 1–4 are implemented, committed, individually reviewed, and verified. The final whole-branch review and final offline acceptance evidence are recorded.
+- Overall status is `PARTIAL`: all code, package, provenance, and offline acceptance checks pass; host-generated visual acceptance and composition-level visual review were not run under the no-external-call constraint.
 
 ## Remaining Work
-- Do not merge this branch in its current state.
-- A future, separately authorized remediation round must close the final scoped-review residuals and repeat review/acceptance. This plan intentionally does not open a second fix round because the task contract permits exactly one concentrated fix and one scoped re-review.
-- A real host image-tool run remains unverified because external or potentially paid calls were prohibited.
+- No code remediation remains in scope. A host-side visual run with the allowed built-in image tool and a human contrast/font review are still needed before claiming a complete visual PASS.
+- Integration remains a user choice; do not merge, push, release, deploy, or publish automatically.
 
 ## Failures
 - Baseline discovery cannot start because `tests/` does not exist in the planning baseline; this is expected for the empty scaffold and is retained as evidence, not treated as a product test failure.
@@ -75,16 +78,17 @@ Build the installable `brandloom` Codex Skill in repository `project-brand-studi
 - Use the bundled Python executable explicitly because the `py` launcher is absent.
 
 ## Open Risks
-- Critical: `state-confirm` and `assert_generation_ready` accept arbitrary non-empty strings, including `"no"`, as confirmations; all 13 required keys can therefore be explicitly denied while the session reaches `GENERATION_READY`.
-- Important: legacy/compatibility manifest validation can pass when all strict artifact entries are absent; a reviewed LOGO can be replaced before cover composition without binding to the accepted manifest hash; a requested project mark may be silently omitted when resolution fails.
-- Minor: manifest filenames sort lexicographically after `v99`; the localization collision test does not isolate its intended invariant; Task 6's Tuotuo crop retains the previously ruled cosmetic motion-line fragment.
-- Task 6 provenance uses the recorded source digests and confirmation timestamp; the three ignored staging sources remain unmodified. Attachment1–6 actual denylist inputs were never supplied, so exact production denylist coverage remains unclaimed.
-- Host image generation was not invoked; only deterministic Pillow composition and the structured request boundary were exercised.
+- Historical Critical: the original confirmation gate accepted arbitrary strings including `"no"`; closed by remediation Task 1 and the fresh all-`"no"` negative acceptance.
+- Historical Important: incomplete-manifest compatibility, accepted-logo replacement, and unresolved project-mark omission; closed by remediation Task 2 with regression coverage and independent review.
+- Minor: Task 6's historical Tuotuo crop retains the previously ruled cosmetic motion-line fragment; no new asset was cropped or altered during remediation.
+- The four newly supplied exact assets are authorized for public distribution at `2026-09-01T16:49:10.1239046+08:00`; source/public bytes and hashes match. Attachment1–6 actual denylist inputs were never supplied, so exact production denylist coverage remains unclaimed.
+- Host image generation was not invoked; deterministic Pillow composition and the structured request boundary were exercised. Available test fonts rendered CJK glyphs as tofu, so composition-level visual acceptance remains PARTIAL.
 
 ## Final Acceptance
-- Status: `FAIL`; final scoped reviewer verdict: `Ready to merge: No`.
-- Runtime and automated verification: Python 3.12.13, Pillow 12.3.0, 106/106 unittest cases passed with no skips; compileall passed.
-- Package: two builds produced the same 50-entry ZIP SHA-256 `2ba74d5ba3a5f0e3dd6d85f9b8465cb8de136361da1e5535219a0df562996903`; all entries are under `brandloom/`, and staging/tests/docs/local state/Git/cache paths are excluded.
-- Acceptance A: `PARTIAL`. The public CLI completed the Chinese logo-first workflow through `DELIVERED`; dimensions, exact copy, IP selections, manifest hashes, and ENHE source hash passed. Host generation was not invoked, and visual review warned that the white ENHE LOGO has weak contrast on the light base and the large project mark partially obscures Tuotuo on the cover.
-- Acceptance B: offline localization `PASS`. English `v01` outputs remained unchanged, Chinese `v02` outputs reused identical base/asset hashes, both sessions reached `DELIVERED`, and 35/35 cross-checks passed. Host generation was not invoked; the white ENHE LOGO also has weak contrast on the synthetic light base.
-- Final scoped re-review: 7 of 11 R17 findings addressed; R17 findings 1, 4, and 5 retain one Critical and three Important concrete defects. R18–R22 boundaries were respected, with no external provider, asset rewrite, or out-of-scope tracked change.
+- Status: `PARTIAL`; independent whole-branch review verdict: no Critical/Important implementation findings. The remaining PARTIAL is limited to host visual generation and composition-level visual review.
+- Runtime and automated verification: Python 3.12.13, Pillow 12.3.0, 137/137 unittest cases passed with no skips; compileall and `git diff --check` passed.
+- Package: two builds produced the same 59-entry ZIP SHA-256 `6ff681d53bcc43b62e35b22a908bd5b24317cd74426e7f2de695f2745d72c405`; all entries are under `brandloom/`, eight raster assets decode with authorized adjacent provenance, and staging/tests/docs/local state/Git/cache paths are excluded.
+- Acceptance A: offline code-level Chinese logo-first workflow reached `DELIVERED`; exact copy, dimensions, IP selections, manifest hashes, and authorized ENHE source hash passed. Host generation was not invoked; available test font rendered CJK tofu and visual status is PARTIAL.
+- Acceptance B: offline localization reached `DELIVERED`; English `v01` outputs remained unchanged, Chinese `v02` outputs reused the same base/asset hashes, all four outputs were preserved, and host generation was not invoked (visual status PARTIAL).
+- Negative gate: a fresh workspace with all 13 confirmation values set to the string `"no"` was rejected by `GenerationGateError`.
+- Asset authorization: the four exact user-supplied files are included only as byte-identical, versioned, provenance-backed public defaults; no redraw, crop, recolor, or overwrite was performed.
