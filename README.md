@@ -1,8 +1,11 @@
 # BrandLoom
 
+[简体中文](README.md) | [English](README.en.md)
+
 BrandLoom 是一个面向 Codex 的品牌视觉工作流 Skill。它通过一次一个问题的确认式 QA，整理项目上下文、文案、风格、字体、品牌素材、使用权和输出规格，再生成可追溯的 LOGO 主视觉、项目标志与项目封面。
 
 BrandLoom 不是一段一次性生图提示词，而是一套本地优先、可确认、可复用、可审计的品牌视觉流程。
+变更会按失效矩阵重新确认受影响的选择。
 
 当前默认输出尺寸：
 
@@ -111,6 +114,16 @@ python scripts/build_skill_package.py
 
 构建结果为 `dist/brandloom.zip`。发行包只包含 `brandloom/` 的可发行内容，不包含开发状态、测试、staging 素材或本地生成输出。
 
+### 本地开发与验证
+
+```powershell
+python -m pip install -r requirements-runtime.txt
+python -m unittest discover -s tests -p "test_*.py" -v
+python -m compileall -q brandloom tests
+python -m pip check
+python scripts/build_skill_package.py
+```
+
 ## 七、如何使用？
 
 在 Codex 中输入：
@@ -136,6 +149,8 @@ BrandLoom 的 Skill 路由包括：
 - `custom-IP`：按权利和保存范围流程接入自定义 IP
 
 其中 `analysis-only` 与 `custom-IP` 是 Skill 对话路由，不是 `brandloom_cli.py` 的 TaskMode 参数。
+
+一次典型的 QA 只确认一个有边界的选择，例如“方形 LOGO 主视觉是否包含 IP 形象”；确认完成后才会进入下一题。
 
 ## 八、项目工作流程
 
@@ -217,7 +232,7 @@ dist/
 - 不请求 API Key，不切换 Images API、SDK、第三方服务或递归 Codex。
 - 不覆盖原始素材、已生成文件或历史版本。
 - 所有上传素材都必须确认使用权、保存 scope 和默认 scope。
-- 公开发行包只包含具有 provenance 且 `authorization_status` 为 `user_authorized` 的资产。
+- 公开发行包只包含具有 provenance、`authorization_status` 为 `user_authorized` 且 `distribution_scope` 为 `public_skill_package` 的资产。
 - 第三方商业参考海报只能提炼抽象风格，不进入公开发行包。
 - 自定义尺寸只适用于显式本地 JSON 模板与 renderer API，并需要重新验证；CLI compose 与宿主请求通道只接受固定默认尺寸，不能通过缩放无效返回制造通过。
 - 生成内容对外发布前必须进行人工复核，并按需要说明 AI 参与。
