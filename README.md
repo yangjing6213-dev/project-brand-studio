@@ -2,6 +2,10 @@
 
 [简体中文](README.md) | [English](README.en.md)
 
+<p align="center">
+  <img src="docs/examples/cover-2x1-v07-zh.png" alt="BrandLoom 中文版封面" width="100%">
+</p>
+
 BrandLoom 是一个面向 Codex 的品牌视觉工作流 Skill。它通过一次一个问题的确认式 QA，整理项目上下文、文案、风格、字体、品牌素材、使用权和输出规格，再生成可追溯的 LOGO 主视觉、项目标志与项目封面。
 
 BrandLoom 不是一段一次性生图提示词，而是一套本地优先、可确认、可复用、可审计的品牌视觉流程。

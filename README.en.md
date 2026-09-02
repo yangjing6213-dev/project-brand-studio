@@ -2,6 +2,10 @@
 
 [简体中文](README.md) | [English](README.en.md)
 
+<p align="center">
+  <img src="docs/examples/cover-2x1-v10-en.png" alt="BrandLoom English cover" width="100%">
+</p>
+
 BrandLoom is a Codex Skill for confirmation-driven brand-visual workflows. It
 collects project context, copy, style, typography, brand assets, usage rights,
 and output specifications one decision at a time, then produces traceable logo
