@@ -70,7 +70,7 @@ BrandLoom 可以产出：
 
 ## 五、示例效果
 
-以下示例是仓库内的项目自有 Pillow 确定性合成示例，用于展示排版、品牌素材和版本链路。它们不是宿主图片生成工具的最终视觉验收样本。
+以下示例分为两组：第一组是仓库内的项目自有 Pillow 确定性合成基线，用于展示排版、品牌素材和版本链路；第二组是在具备宿主图片工具的 Codex 会话中生成并完成人工目视检查的示例。
 
 <p align="center">
   <img src="docs/examples/logo-card-zh.png" alt="中文方形 LOGO 主视觉示例" width="30%">
@@ -84,7 +84,21 @@ BrandLoom 可以产出：
 - `logo-card-en.png`：1024×1024
 - `cover-2x1.png`：2048×1024
 
-最终视觉发布仍需要在宿主图片工具可用的环境中进行人工复核。
+### 宿主工具生成与人工检查示例
+
+以下两张图使用宿主内置图片工具生成底图，再由 BrandLoom 使用 Pillow 确定性合成；本轮已完成人工目视检查。它们仅用于文档展示，不是 Skill 运行时的默认资产，也不替代后续项目发布前的人工复核。
+
+<p align="center">
+  <img src="docs/examples/brandloom-host-logo-card-1254x1254.png" alt="宿主工具人工检查的 1254×1254 方形 LOGO 主视觉示例" width="45%">
+  <img src="docs/examples/brandloom-host-cover-1774x887.png" alt="宿主工具人工检查的 1774×887 横向封面示例" width="50%">
+</p>
+
+示例文件实际尺寸：
+
+- `brandloom-host-logo-card-1254x1254.png`：1254×1254
+- `brandloom-host-cover-1774x887.png`：1774×887
+
+图片由 AI 宿主工具参与生成，并以同名 provenance 文件记录来源、哈希和公开文档授权范围。它们证明本轮示例已经过人工检查，不代表整个项目的视觉一致性验收状态已从 `PARTIAL` 变为 `PASS`。
 
 ## 六、安装方法
 

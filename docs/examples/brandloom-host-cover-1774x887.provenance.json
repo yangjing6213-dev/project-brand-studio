@@ -1,0 +1,14 @@
+{
+  "source_reference": "BrandLoom host visual acceptance run host-visual-accept-20260902-v03",
+  "source_base_sha256": "b9e20c3d77e1dfaf782330c2e4926e84ab47eb245cd21eb2407193a22fb634f9",
+  "sha256": "2a949b39f6a2ec03a5d9fe22b522ccaeb7df3eb4ada3409d994925d0f66fad3f",
+  "dimensions": [1774, 887],
+  "confirmed_at": "2026-09-02T14:03:56+08:00",
+  "confirmation_source": "user_requested_public_documentation_example",
+  "authorization_status": "user_authorized",
+  "distribution_scope": "documentation_examples",
+  "generation_method": "host_builtin_image_tool_then_pillow",
+  "ai_assistance": true,
+  "review_status": "human_visual_reviewed",
+  "notes": "Full-bleed cover composition with the author-anime, Tuotuo, and Xingbi references; no separate text panel."
+}
