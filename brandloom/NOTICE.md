@@ -15,3 +15,10 @@ and `白色 ENHE LOGO.png` (explicit white-logo variant). Their source
 filenames, SHA-256 digests, confirmation time, and roles are stored in adjacent
 same-stem provenance JSON files. The white variant is opt-in and requires a
 contrast review; no pixel cleanup or geometry change was performed.
+
+This authorization records permission to distribute these exact files inside
+the public BrandLoom package only. It is not a transfer of copyright,
+trademark, character, or personality rights, and it does not authorize a
+buyer to rebrand the bundled ENHE or IP assets as their own. Marketplace
+listing terms and any buyer license are separate from this source-package
+notice.

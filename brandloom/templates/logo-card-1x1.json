@@ -3,10 +3,10 @@
   "canvas": {"width": 1254, "height": 1254, "safe_margin": 75},
   "slots": {
     "company_logo": {"x": 86, "y": 73, "w": 318, "h": 92, "fit": "contain"},
-    "title": {"x": 86, "y": 202, "w": 551, "h": 245, "min_font_size": 44, "max_font_size": 108},
-    "subtitle": {"x": 86, "y": 465, "w": 551, "h": 92, "min_font_size": 20, "max_font_size": 39},
-    "value_line": {"x": 86, "y": 576, "w": 551, "h": 80, "min_font_size": 17, "max_font_size": 32},
-    "features": {"x": 429, "y": 704, "w": 551, "h": 208, "min_font_size": 15, "max_font_size": 27},
+    "title": {"x": 86, "y": 200, "w": 760, "h": 220, "min_font_size": 72, "max_font_size": 156},
+    "subtitle": {"x": 86, "y": 438, "w": 760, "h": 150, "min_font_size": 30, "max_font_size": 56},
+    "value_line": {"x": 86, "y": 615, "w": 760, "h": 105, "min_font_size": 24, "max_font_size": 46},
+    "features": {"x": 86, "y": 755, "w": 760, "h": 210, "min_font_size": 22, "max_font_size": 38},
     "project_mark": {"x": 86, "y": 894, "w": 220, "h": 220, "fit": "contain"}
   }
 }

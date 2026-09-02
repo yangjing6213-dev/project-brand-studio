@@ -1,12 +1,36 @@
 {
   "schema_version": "1.0",
   "canvas": {"width": 1774, "height": 887, "safe_margin": 44},
+  "overlays": {
+    "workflow_diagram": {
+      "x": 918,
+      "y": 44,
+      "w": 810,
+      "h": 798,
+      "blur_radius": 0,
+      "node_blur_radius": 12,
+      "node_blur_transparency": 0.6,
+      "node_border_width": 2,
+      "node_corner_radius": 16,
+      "accent": [56, 193, 255, 255],
+      "secondary": [126, 112, 239, 255],
+      "node_gap": 20,
+      "node_height": 142,
+      "inner_padding": 24,
+      "steps": [
+        {"zh": "看懂项目", "en": "Understand", "detail_zh": "项目 · 对话 · 附件", "detail_en": "Project · chat · files"},
+        {"zh": "选好方向", "en": "Choose", "detail_zh": "文案 · 风格 · 素材", "detail_en": "Copy · look · assets"},
+        {"zh": "生成画面", "en": "Create", "detail_zh": "底图 + 品牌排版", "detail_en": "Base image + brand layout"},
+        {"zh": "拿到成果", "en": "Get results", "detail_zh": "方形 · 封面 · 双语", "detail_en": "Square · cover · bilingual"}
+      ]
+    }
+  },
   "slots": {
     "company_logo": {"x": 89, "y": 62, "w": 312, "h": 87, "fit": "contain"},
     "title": {"x": 89, "y": 165, "w": 667, "h": 243, "min_font_size": 42, "max_font_size": 100},
     "subtitle": {"x": 89, "y": 424, "w": 667, "h": 78, "min_font_size": 21, "max_font_size": 42},
     "value_line": {"x": 89, "y": 520, "w": 667, "h": 69, "min_font_size": 19, "max_font_size": 35},
-    "features": {"x": 89, "y": 606, "w": 667, "h": 191, "min_font_size": 17, "max_font_size": 31},
+    "features": {"x": 89, "y": 590, "w": 820, "h": 285, "min_font_size": 16, "max_font_size": 24},
     "project_mark": {"x": 1109, "y": 156, "w": 520, "h": 520, "fit": "contain"},
     "scene": {"x": 887, "y": 0, "w": 887, "h": 887}
   }

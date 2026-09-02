@@ -1,6 +1,6 @@
 ---
 name: brandloom
-description: 用于分析项目、对话、附件、链接和品牌素材，并通过确认式 QA 生成或修改项目 LOGO 主视觉、项目标志、GitHub 封面、中英文版本和品牌视觉变体。
+description: Use when a project needs a confirmed, repeatable brand-visual workflow from project context, conversations, attachments, links, or supplied brand assets, including logo cards, covers, bilingual variants, or scoped edits.
 ---
 
 # BrandLoom

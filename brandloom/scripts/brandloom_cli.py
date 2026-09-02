@@ -211,6 +211,59 @@ def _sha256_path(path: Path) -> str:
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
+def _brief_upstream_sha256(path: Path) -> str:
+    """Hash all brief decisions except copy so cover copy edits stay scoped."""
+    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("brand brief must be a JSON object")
+    upstream = dict(payload)
+    upstream.pop("copy", None)
+    canonical = json.dumps(upstream, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _cover_copy_edit_compatible(
+    *,
+    evidence: dict[str, object],
+    manifest: dict[str, object],
+    brief: BrandBrief,
+    brief_path: Path,
+    session: QASession,
+    skill_root: Path,
+) -> bool:
+    """Allow only an explicitly tracked cover-copy edit to reuse a square."""
+    if session.state is not QAState.GENERATE_COVER_BASE or manifest.get("output_type") != "logo-card":
+        return False
+    recorded_upstream = evidence.get("brief_upstream_sha256")
+    if not isinstance(recorded_upstream, str) or not recorded_upstream:
+        return False
+    try:
+        if recorded_upstream != _brief_upstream_sha256(brief_path):
+            return False
+        current_request = build_host_request(brief, "logo_card", expected=(1254, 1254), skill_root=skill_root)
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        return False
+    recorded_request = manifest.get("host_request")
+    if not isinstance(recorded_request, dict):
+        return False
+    comparable = ("schema_version", "backend", "output_type", "aspect_ratio", "dimensions", "prompt", "reference_assets")
+    return all(current_request.get(key) == recorded_request.get(key) for key in comparable)
+
+
+def _brief_with_manifest_copy(brief: BrandBrief, manifest: dict[str, object]) -> dict[str, object]:
+    """Build a validation-only brief using the copy rendered in the square."""
+    replacement = manifest.get("rendered_copy")
+    return {
+        "schema_version": brief.schema_version,
+        "project": dict(brief.project),
+        "copy": dict(replacement) if isinstance(replacement, dict) else dict(brief.copy),
+        "style": dict(brief.style),
+        "fonts": dict(brief.fonts),
+        "assets": dict(brief.assets),
+        "outputs": dict(brief.outputs),
+    }
+
+
 def _manifest_company_logo_hash(payload: dict[str, object]) -> str | None:
     assets = payload.get("assets")
     if not isinstance(assets, list):
@@ -240,7 +293,9 @@ def _assert_accepted_logo_binding(
     session: QASession,
     logo,
     logo_treatment: str,
-) -> None:
+    brief: BrandBrief,
+    skill_root: Path,
+) -> bool:
     """Bind cover composition to the current workspace and logo decision."""
     if session.project_slug != slug or evidence.get("slug") != slug:
         raise ValueError("accepted logo evidence is bound to a different project slug")
@@ -260,7 +315,18 @@ def _assert_accepted_logo_binding(
     recorded_brief = Path(str(brief_entry.get("path", "")))
     recorded_brief = recorded_brief.resolve() if recorded_brief.is_absolute() else (resolved_manifest.parent / recorded_brief).resolve()
     if recorded_brief != brief_path.resolve() or brief_entry.get("sha256") != _sha256_path(brief_path):
-        raise ValueError("accepted logo manifest is bound to a different brief")
+        if not _cover_copy_edit_compatible(
+            evidence=evidence,
+            manifest=manifest,
+            brief=brief,
+            brief_path=brief_path,
+            session=session,
+            skill_root=skill_root,
+        ):
+            raise ValueError("accepted logo manifest is bound to a different brief")
+        copy_only_edit = True
+    else:
+        copy_only_edit = False
     manifest_slug = manifest.get("project_slug")
     if manifest_slug is not None and manifest_slug != slug:
         raise ValueError("accepted logo manifest is bound to a different project slug")
@@ -286,6 +352,7 @@ def _assert_accepted_logo_binding(
             host_path = Path(str(accepted_host.get("path", ""))).resolve()
             if host_path != accepted_output or accepted_host.get("sha256") != evidence.get("sha256"):
                 raise ValueError("accepted logo host evidence does not match the reviewed output")
+    return copy_only_edit
 
 
 def _resolve_font_paths(brief: BrandBrief) -> dict[str, Path]:
@@ -417,7 +484,7 @@ def _compose(args: argparse.Namespace) -> int:
         accepted_manifest = json.loads(accepted_manifest_path.read_text(encoding="utf-8"))
         if not isinstance(accepted_manifest, dict):
             raise ValueError("accepted logo manifest must be a JSON object")
-        _assert_accepted_logo_binding(
+        copy_only_edit = _assert_accepted_logo_binding(
             evidence=accepted_logo_evidence,
             manifest_path=accepted_manifest_path,
             manifest=accepted_manifest,
@@ -428,11 +495,19 @@ def _compose(args: argparse.Namespace) -> int:
             session=session,
             logo=logo,
             logo_treatment=logo_treatment,
+            brief=brief,
+            skill_root=skill_root,
         )
+        logo_validation_brief = _brief_with_manifest_copy(brief, accepted_manifest) if copy_only_edit else brief
+        logo_validation_manifest = accepted_manifest
+        if copy_only_edit:
+            logo_validation_manifest = dict(accepted_manifest)
+            logo_validation_manifest["brief"] = dict(accepted_manifest.get("brief", {}))
+            logo_validation_manifest["brief"]["sha256"] = _sha256_path(root / "brand-brief.json")
         accepted_report = validate_output(
             accepted_logo_path,
-            manifest=accepted_manifest,
-            brief=brief,
+            manifest=logo_validation_manifest,
+            brief=logo_validation_brief,
             asset_hashes={"company_logo": logo.record.sha256},
             output_type="logo_card",
             manual_visual_checks=True,
@@ -543,7 +618,7 @@ def _validate(args: argparse.Namespace) -> int:
         manifest_path, payload = _latest_manifest(directory, "logo-card")
         output_path = _manifest_output_path(manifest_path, payload)
         output_entry = payload.get("output")
-        evidence = {"path": str(output_path.resolve()), "sha256": hashlib.sha256(output_path.read_bytes()).hexdigest(), "manifest_path": str(manifest_path.resolve()), "manifest_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(), "manifest_output_sha256": str(output_entry.get("sha256", "")) if isinstance(output_entry, dict) else "", "output_type": str(payload.get("output_type", "")), "slug": slug}
+        evidence = {"path": str(output_path.resolve()), "sha256": hashlib.sha256(output_path.read_bytes()).hexdigest(), "manifest_path": str(manifest_path.resolve()), "manifest_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(), "manifest_output_sha256": str(output_entry.get("sha256", "")) if isinstance(output_entry, dict) else "", "output_type": str(payload.get("output_type", "")), "slug": slug, "brief_upstream_sha256": _brief_upstream_sha256(project_root(workspace) / "brand-brief.json")}
         if not validate_accepted_logo_evidence(evidence, expected_slug=slug):
             return 2
         session = replace(advance(session, target_state), accepted_logo=None, logo_review_candidate=evidence)

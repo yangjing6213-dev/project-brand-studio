@@ -368,6 +368,32 @@ class PipelineTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 brandloom_cli.main(["compose", "--workspace", str(root), "--type", "cover", "--base", str(cover_base)])
 
+    def test_cover_allows_copy_only_edit_without_reaccepting_logo(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            brandloom_cli.main(["init", "--workspace", str(root)])
+            for source, category in (
+                (self._asset(root, "logo.png", (40, 20), (1, 2, 3, 255)), "company-logo"),
+                (self._asset(root, "mark.png", (20, 20), (4, 5, 6, 255)), "project-mark"),
+            ):
+                brandloom_cli.main([
+                    "asset-add", "--workspace", str(root), "--source", str(source),
+                    "--category", category, "--scope", "project", "--rights", "user_authorized",
+                    "--save-confirmed", "--make-default",
+                ])
+            self._write_ready_brief(root, slug="demo")
+            logo_base = self._asset(root, "logo-base.png", (1254, 1254), (245, 245, 245, 255))
+            self.assertEqual(brandloom_cli.main(["compose", "--workspace", str(root), "--type", "logo-card", "--base", str(logo_base)]), 0)
+            self.assertEqual(brandloom_cli.main(["validate", "--workspace", str(root), "--type", "logo-card"]), 0)
+            self.assertEqual(brandloom_cli.main(["deliver", "--workspace", str(root), "--type", "logo-card", "--reviewed"]), 0)
+
+            brief_path = root / ".brandloom" / "brand-brief.json"
+            brief_payload = json.loads(brief_path.read_text())
+            brief_payload["copy"]["subtitle"] = "A clearer cover"
+            brief_path.write_text(json.dumps(brief_payload), encoding="utf-8")
+            cover_base = self._asset(root, "cover-base.png", (1774, 887), (235, 235, 235, 255))
+            self.assertEqual(brandloom_cli.main(["compose", "--workspace", str(root), "--type", "cover", "--base", str(cover_base)]), 0)
+
     def test_compose_rejects_unsafe_project_slug_without_escape(self) -> None:
         with TemporaryDirectory() as directory:
             root = Path(directory)

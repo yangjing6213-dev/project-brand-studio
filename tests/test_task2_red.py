@@ -128,6 +128,12 @@ class Task2ContractTests(unittest.TestCase):
         self.assertIsNone(changed.accepted_logo)
         self.assertIsNone(changed.logo_review_candidate)
 
+    def test_copy_only_invalidation_preserves_accepted_logo_evidence(self):
+        evidence = {"path": "x", "sha256": "a"}
+        session = QASession("1.0", "s", TaskMode.NEW, QAState.GENERATION_READY, "p", accepted_logo=evidence, confirmed={"copy": True})
+        changed = invalidate_from(session, "copy")
+        self.assertEqual(changed.accepted_logo, evidence)
+
     def test_qasession_json_roundtrip_preserves_candidate_and_accepted(self):
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / "qa-state.json"
