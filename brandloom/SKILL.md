@@ -5,7 +5,7 @@ description: Use when a project needs a confirmed, repeatable brand-visual workf
 
 # BrandLoom
 
-先读取 `references/architecture.md`，再根据当前阶段按需读取参考文件；不要一次加载完整参考库。任何生成或改图请求都必须先完成确认式 QA，只有 `qa_state = GENERATION_READY` 且用户明确确认后，才可调用 `host_builtin_image_tool`。
+先读取 `references/architecture.md`，再根据当前阶段按需读取参考文件；不要一次加载完整参考库。任何生成或改图请求都必须先完成确认式 QA，只有 `qa_state = GENERATION_READY` 且用户明确确认后，才可调用 `host_builtin_image_tool`。这里的名称是宿主能力边界标识，不是假定存在的命令；先识别当前宿主实际暴露的图片工具，不存在时按 hard-stop 规则停止。
 
 ## 任务路由
 
