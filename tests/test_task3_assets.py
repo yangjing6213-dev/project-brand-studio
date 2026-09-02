@@ -43,9 +43,6 @@ class Task3AssetTests(unittest.TestCase):
         for asset_id, (relative, source_name, role, expected_hash) in EXPECTED.items():
             image = ASSET_ROOT / relative
             self.assertTrue(image.is_file(), asset_id)
-            source = INCOMING / source_name
-            self.assertTrue(source.is_file(), source)
-            self.assertEqual(source.read_bytes(), image.read_bytes(), asset_id)
             self.assertEqual(hashlib.sha256(image.read_bytes()).hexdigest(), expected_hash, asset_id)
             with Image.open(image) as decoded:
                 decoded.load()
@@ -65,6 +62,16 @@ class Task3AssetTests(unittest.TestCase):
             self.assertIs(data["save_scope_confirmed"], True)
             self.assertEqual(data["default_scope"], "skill-defaults")
             self.assertIs(data["default_selection"], False)
+
+    def test_local_incoming_assets_match_defaults_when_present(self) -> None:
+        """Keep ignored local authorization evidence consistent when available."""
+        if not INCOMING.is_dir():
+            self.skipTest("staging/brand-assets/incoming is intentionally git-ignored and local-only")
+        for asset_id, (relative, source_name, _role, _expected_hash) in EXPECTED.items():
+            source = INCOMING / source_name
+            image = ASSET_ROOT / relative
+            self.assertTrue(source.is_file(), source)
+            self.assertEqual(source.read_bytes(), image.read_bytes(), asset_id)
 
     def test_host_request_includes_pair_once_and_geometry_for_selected_characters(self) -> None:
         brief = BrandBrief(
@@ -188,3 +195,4 @@ class Task3AssetTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
