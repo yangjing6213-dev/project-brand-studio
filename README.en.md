@@ -77,6 +77,14 @@ The built-in IP options are `author-anime`, `tuotuo`, and `xingbi`. They are
 equal-level choices and support three single-IP options, three pairs, and one
 all-three combination (seven combinations in total).
 
+Both square logo key visuals and covers use a full-bleed, photorealistic
+real-world scene suited to the project's purpose and user workflow, with copy
+overlaid on the scene. The image tool can generate that setting; you do not need
+to upload a photograph. All-black, solid-color, gradient-only, or purely abstract
+backgrounds are not substitutes, and one generic office is not reused for every
+project. Minimal, neon, and 3D presets follow the same rule. Standalone project
+icons are outside this background requirement.
+
 ## 4. What value does it provide?
 
 - **Visual consistency:** The company logo, project mark, IP, typography, and
