@@ -112,6 +112,12 @@ class SkillContractTests(unittest.TestCase):
             self.assertIn(phrase, body)
         self.assertNotIn("usage_term", body)
 
+    def test_company_logo_rights_docs_do_not_require_unmodeled_usage_term(self) -> None:
+        for relative in ("references/qa-dialogue-workflow.md", "references/brand-assets.md"):
+            text = (SKILL_ROOT / relative).read_text(encoding="utf-8")
+            self.assertNotIn("使用期限", text, relative)
+            self.assertNotIn("usage_term", text, relative)
+
     def test_style_menu_lists_concrete_profiles_without_hidden_second_choice(self) -> None:
         workflow = (SKILL_ROOT / "references" / "qa-dialogue-workflow.md").read_text(encoding="utf-8")
         body = re.search(r"^- `STYLE_PENDING`：(?P<body>.*?)(?=^- `|\Z)", workflow, flags=re.MULTILINE | re.DOTALL).group("body")
