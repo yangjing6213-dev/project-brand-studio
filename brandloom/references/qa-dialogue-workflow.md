@@ -4,7 +4,7 @@
 
 `INTAKE → CONTEXT_ANALYSIS → CONTEXT_CONFIRM_PENDING → COPY_DIRECTION_PENDING → STYLE_PENDING → FONT_PENDING → COMPANY_LOGO_PENDING → PROJECT_MARK_PENDING → IP_CAST_PENDING → IP_COMBINATION_PENDING → (CUSTOM_IP_REFERENCE_PENDING → CUSTOM_IP_DRAFT_PENDING → RIGHTS_CONFIRM_PENDING)? → IP_USAGE_PENDING → SHOT_LIST_PENDING → OUTPUT_SPEC_PENDING → COHERENCE_REVIEW_PENDING → GENERATION_CONFIRM_PENDING → GENERATION_READY → GENERATE_LOGO_BASE → COMPOSE_LOGO_CARD → INTERNAL_LOGO_QA → LOGO_USER_REVIEW → GENERATE_COVER_BASE → COMPOSE_COVER → INTERNAL_COVER_QA → USER_REVIEW → DELIVERED`；任意待确认状态可 `CANCELLED`。
 
-一次只问一个问题。每阶段给出互斥选项并标明推荐项；推荐、默认、沉默和模型推断都不算确认。用户可输入自定义要求。所有阶段支持 `修改`、`返回`、`取消`；发现版权、可读性或协调性风险时先提示，只有用户接受风险或采用调整后才推进。
+一次只问一个问题。每阶段给出互斥选项并标明推荐项；推荐、默认、沉默和模型推断都不算确认。选项必须在同一条面向用户的消息中完整列出，并根据当前项目内容说明推荐理由；不得只写确认结论而省略选项。用户只说继续但未选择选项时，必须重新显示选项并请求明确选择，不得替用户猜测。用户可输入自定义要求。所有阶段支持 `修改`、`返回`、`取消`；发现版权、可读性或协调性风险时先提示，只有用户接受风险或采用调整后才推进。
 
 ## 确认值与 CLI
 

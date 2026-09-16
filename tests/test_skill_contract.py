@@ -48,6 +48,17 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("一次只问一个问题", workflow)
         self.assertIn("推荐、默认、沉默和模型推断都不算确认", workflow)
 
+    def test_pending_prompts_require_visible_options_and_project_recommendation(self) -> None:
+        workflow = (SKILL_ROOT / "references" / "qa-dialogue-workflow.md").read_text(encoding="utf-8")
+        skill_text = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
+        for text, phrase in (
+            (workflow, "选项必须在同一条面向用户的消息中完整列出"),
+            (workflow, "根据当前项目内容说明推荐理由"),
+            (workflow, "用户只说继续但未选择选项时，必须重新显示选项"),
+            (skill_text, "不得只写确认结论而省略选项"),
+        ):
+            self.assertIn(phrase, text)
+
     def test_skill_routes_generation_gate_to_host_image_tool(self) -> None:
         skill_text = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
         self.assertIn("GENERATION_READY", skill_text)

@@ -18,6 +18,10 @@ description: Use when a project needs a confirmed, repeatable brand-visual workf
 - `custom-IP`：读取 `rights-and-provenance.md`、`brand-assets.md`，依次完成参考、抽象 profile、草稿、使用权和保存范围确认；未到 `user_authorized` 不得生成。
 - 缺少图片工具：当前仅允许 host 内置 `host_builtin_image_tool`；仍可完成 analysis-only/plan-only，或交付已确认的本地合成计划。工具不可用、调用失败、空返回路径、图片缺失/不可读或严重比例不匹配时 hard-stop，明确说明无法生成，不伪造调用结果、不自动重试，不使用 API keys、Images API、第三方 provider 或递归 Codex。
 
+## QA 消息契约
+
+每个 `*_PENDING` 回合必须在同一条面向用户的消息中完整列出互斥选项（使用 A/B/C 等标签），随后明确标出一个推荐项，并根据当前项目内容说明推荐理由。不得把选项只写在工具输出、内部状态或默认推断中；不得只写确认结论而省略选项。用户只说“继续”但未选择选项时，必须重新显示选项并请求明确选择，不得替用户猜测。
+
 ## 阶段参考路由
 
 按当前状态仅读取对应文件：上下文→`context-analysis.md`；文案→`copy-directions.md`；风格→`style-presets.md`；字体→`font-presets.md`；公司 LOGO/项目标志/IP→`brand-assets.md` 与 `rights-and-provenance.md`；构图→`composition-recipes.md`；输出→`output-specs.md`；编辑/本地化→`localization-and-editing.md`；问答门禁→`qa-dialogue-workflow.md`；内部验收→`qa-checklist.md`。
