@@ -322,3 +322,12 @@ If you are also using AI for content, knowledge bases, workflows, or
 productization, visit the website for more resources:
 
 [www.enhe-tech.com.cn](https://www.enhe-tech.com.cn/)
+
+## Version Notes
+
+### 2026-09-16: QA option visibility and confirmation contract fix
+
+- Every pending stage now shows its complete, mutually exclusive choices in the same user-facing message and marks one project-grounded recommendation.
+- If the user replies with “continue” without selecting a letter, the Skill re-displays the current choices instead of guessing or skipping confirmation.
+- All 16 pending states now have visible menus; style profiles, output plans, and company-logo rights/storage confirmation are aligned with the actual CLI and manifest fields.
+- Added Skill contract tests covering option completeness, recommendation reasons, mutual exclusion, and rights-field boundaries.
