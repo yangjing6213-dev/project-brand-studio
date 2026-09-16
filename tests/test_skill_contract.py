@@ -108,8 +108,9 @@ class SkillContractTests(unittest.TestCase):
     def test_company_logo_menu_preserves_rights_scope_and_treatment_contract(self) -> None:
         workflow = (SKILL_ROOT / "references" / "qa-dialogue-workflow.md").read_text(encoding="utf-8")
         body = re.search(r"^- `COMPANY_LOGO_PENDING`：(?P<body>.*?)(?=^- `|\Z)", workflow, flags=re.MULTILINE | re.DOTALL).group("body")
-        for phrase in ("使用期限", "保存 scope", "default scope", "权利", "asset-add", ".brandloom/asset-manifest.json", "usage_term", "save_scope_confirmed", "confirmed.company_logo_treatment"):
+        for phrase in ("保存 scope", "default scope", "权利", "asset-add", "--make-default", ".brandloom/asset-manifest.json", "save_scope_confirmed", "confirmed.company_logo_treatment"):
             self.assertIn(phrase, body)
+        self.assertNotIn("usage_term", body)
 
     def test_style_menu_lists_concrete_profiles_without_hidden_second_choice(self) -> None:
         workflow = (SKILL_ROOT / "references" / "qa-dialogue-workflow.md").read_text(encoding="utf-8")
