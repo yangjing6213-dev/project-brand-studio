@@ -275,7 +275,7 @@ BrandLoom 是我用 AI 搭建的个人生成系统中的一个工具。
 
 [www.enhe-tech.com.cn](https://www.enhe-tech.com.cn/)
 
-## 版本说明
+## 十四、版本说明
 
 ### 2026-09-16：QA 选项可见性与确认契约修复
 
