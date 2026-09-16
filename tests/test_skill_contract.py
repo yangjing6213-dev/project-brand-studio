@@ -67,7 +67,7 @@ class SkillContractTests(unittest.TestCase):
         expected_labels = {
             "CONTEXT_CONFIRM_PENDING": "ABC",
             "COPY_DIRECTION_PENDING": "ABCDE",
-            "STYLE_PENDING": "ABC",
+            "STYLE_PENDING": "ABCDEF",
             "FONT_PENDING": "ABCDE",
             "COMPANY_LOGO_PENDING": "ABC",
             "PROJECT_MARK_PENDING": "ABC",
@@ -108,8 +108,29 @@ class SkillContractTests(unittest.TestCase):
     def test_company_logo_menu_preserves_rights_scope_and_treatment_contract(self) -> None:
         workflow = (SKILL_ROOT / "references" / "qa-dialogue-workflow.md").read_text(encoding="utf-8")
         body = re.search(r"^- `COMPANY_LOGO_PENDING`：(?P<body>.*?)(?=^- `|\Z)", workflow, flags=re.MULTILINE | re.DOTALL).group("body")
-        for phrase in ("使用期限", "保存 scope", "default scope", "权利", "confirmed.company_logo_treatment"):
+        for phrase in ("使用期限", "保存 scope", "default scope", "权利", "asset-add", ".brandloom/asset-manifest.json", "usage_term", "save_scope_confirmed", "confirmed.company_logo_treatment"):
             self.assertIn(phrase, body)
+
+    def test_style_menu_lists_concrete_profiles_without_hidden_second_choice(self) -> None:
+        workflow = (SKILL_ROOT / "references" / "qa-dialogue-workflow.md").read_text(encoding="utf-8")
+        body = re.search(r"^- `STYLE_PENDING`：(?P<body>.*?)(?=^- `|\Z)", workflow, flags=re.MULTILINE | re.DOTALL).group("body")
+        for profile in (
+            "bright-saas-real-scene",
+            "dark-neon-product",
+            "high-density-commercial",
+            "cinematic-monitor-hero",
+            "editorial-minimal-grid",
+            "soft-3d-brand-icon",
+        ):
+            self.assertIn(profile, body)
+        self.assertNotIn("选择 A 后才可再选", body)
+
+    def test_output_menu_uses_complete_mutually_exclusive_plans(self) -> None:
+        workflow = (SKILL_ROOT / "references" / "qa-dialogue-workflow.md").read_text(encoding="utf-8")
+        body = re.search(r"^- `OUTPUT_SPEC_PENDING`：(?P<body>.*?)(?=^- `|\Z)", workflow, flags=re.MULTILINE | re.DOTALL).group("body")
+        for phrase in ("完整双语", "仅一张 LOGO", "仅一张封面", "自定义单画布", "自定义多输出包"):
+            self.assertIn(phrase, body)
+        self.assertNotIn("分别设置 LOGO 与封面", body)
 
     def test_skill_routes_generation_gate_to_host_image_tool(self) -> None:
         skill_text = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
@@ -143,7 +164,7 @@ class SkillContractTests(unittest.TestCase):
             self.assertIn(operation, workflow)
         for phrase in ("当前 host 仅允许", "空返回路径", "不可用或调用失败", "不得自动重试"):
             self.assertIn(phrase, workflow)
-        for option in ("GitHub Social Preview 1280x640", "logo-only", "cover-only", "bilingual", "custom dimensions"):
+        for option in ("GitHub Social Preview 1280x640", "logo-only", "cover-only", "bilingual", "自定义单画布", "自定义多输出包"):
             self.assertIn(option, workflow)
         self.assertIn("| 变更项 | 保留 | 必须重新确认 |", workflow)
         self.assertIn("| custom-IP-reference |", workflow)
