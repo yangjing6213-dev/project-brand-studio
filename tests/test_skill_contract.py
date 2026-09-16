@@ -59,6 +59,39 @@ class SkillContractTests(unittest.TestCase):
         ):
             self.assertIn(phrase, text)
 
+    def test_every_pending_state_has_labeled_options_and_recommendation(self) -> None:
+        workflow = (SKILL_ROOT / "references" / "qa-dialogue-workflow.md").read_text(encoding="utf-8")
+        menu = workflow.split("## 菜单", 1)[1].split("## 失效矩阵", 1)[0]
+        pending_states = (
+            "CONTEXT_CONFIRM_PENDING",
+            "COPY_DIRECTION_PENDING",
+            "STYLE_PENDING",
+            "FONT_PENDING",
+            "COMPANY_LOGO_PENDING",
+            "PROJECT_MARK_PENDING",
+            "IP_CAST_PENDING",
+            "IP_COMBINATION_PENDING",
+            "CUSTOM_IP_REFERENCE_PENDING",
+            "CUSTOM_IP_DRAFT_PENDING",
+            "RIGHTS_CONFIRM_PENDING",
+            "IP_USAGE_PENDING",
+            "SHOT_LIST_PENDING",
+            "OUTPUT_SPEC_PENDING",
+            "COHERENCE_REVIEW_PENDING",
+            "GENERATION_CONFIRM_PENDING",
+        )
+        for state in pending_states:
+            match = re.search(
+                rf"^- `{re.escape(state)}`：(?P<body>.*?)(?=^- `|\Z)",
+                menu,
+                flags=re.MULTILINE | re.DOTALL,
+            )
+            self.assertIsNotNone(match, state)
+            body = match.group("body")
+            self.assertRegex(body, r"(?m)^\s*[A-Z]\.\s")
+            self.assertIn("推荐", body, state)
+            self.assertIn("推荐理由", body, state)
+
     def test_skill_routes_generation_gate_to_host_image_tool(self) -> None:
         skill_text = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
         self.assertIn("GENERATION_READY", skill_text)

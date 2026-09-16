@@ -35,18 +35,24 @@
 
 ## 菜单
 
-- `COPY_DIRECTION_PENDING`：项目介绍型（推荐）；痛点—解决方案—结果型；核心功能型；使用场景与工作流型；商业转化型。
-- `STYLE_PENDING` 顶层仅三类：`reference-adaptive`（推荐）；`editorial-minimal`；`soft-3d-brand`。选择 `reference-adaptive` 后再选四个主家族：`bright-saas-real-scene`、`dark-neon-product`、`high-density-commercial`、`cinematic-monitor-hero`；另列两个具体 profile：`editorial-minimal-grid`、`soft-3d-brand-icon`（不增加顶层菜单数量）。
-- `FONT_PENDING`：微软雅黑 + Segoe UI（推荐）；思源黑体 + Inter；HarmonyOS Sans + Inter；阿里妈妈数黑体 + Montserrat；得意黑 + Space Grotesk。缺失字体必须确认回退。
-- `COMPANY_LOGO_PENDING`：仅本次使用（推荐）；保存当前项目不设默认；保存当前项目并设项目默认；保存个人库不设默认；保存个人库并设个人默认；另确认权利和允许操作。默认允许 `scale`、`position`；`recolor_monochrome`（规范 operation，映射为 concrete treatment `monochrome-black`）、`opacity`、`external_shadow` 仅在用户确认后允许；禁止 `redraw`、`distort`、`change_letterforms`、`change_geometry`、`use_as_training_reference`。非默认 treatment 必须在此状态记录 `confirmed.company_logo_treatment`。
-- `PROJECT_MARK_PENDING`：使用当前上传；上传新的；使用项目库；本次不放；生成新概念分支。
-- `IP_CAST_PENDING`：黑发动漫人物；拓拓；星比；拓拓 + 星比（推荐）；更多组合或自定义 IP。`IP_COMBINATION_PENDING`：黑发人物 + 拓拓；黑发人物 + 星比；三者；上传自定义 IP；返回上一层。
-- `CUSTOM_IP_REFERENCE_PENDING`：确认真实可访问参考；确认仅抽象分析、不复制外形；补充/更换参考；返回；取消。`CUSTOM_IP_DRAFT_PENDING`：确认抽象 profile 草稿；修改 profile；重新分析；返回；取消。`RIGHTS_CONFIRM_PENDING`：确认 `user_authorized` 使用权；声明 `analysis_only`/`unknown`/`missing`/`draft_unconfirmed`；确认保存 scope 和 default scope；返回；取消。非 `user_authorized` 必须阻塞，不得生成。
-- `IP_USAGE_PENDING`：两图同组；LOGO 单个、封面组合（推荐）；LOGO 不放 IP、封面使用；分别自定义；返回修改角色。
-- `SHOT_LIST_PENDING`：确认推荐；调整 LOGO 主视觉；调整封面；调整功能点或角色动作；只交付方案和提示词。
-- `OUTPUT_SPEC_PENDING`：确认默认 PNG/sRGB 规格；GitHub Social Preview 1280x640；logo-only；cover-only；bilingual；custom dimensions（仅本地模板/渲染 API，重新检查比例/安全区与可读性；CLI/宿主默认通道不支持）；分别设置 LOGO 与封面；返回。
-- `COHERENCE_REVIEW_PENDING`：保持要求并接受风险；采用推荐调整（推荐）；修改当前要求；返回指定阶段；取消。
-- `GENERATION_CONFIRM_PENDING`：确认生成 LOGO 后继续封面（推荐）；仅生成 LOGO；仅生成封面（需已有 LOGO）；返回修改；取消。
+以下每个菜单都必须原样转化为一条面向用户的消息：先列出全部 A/B/C 选项，再标出推荐项和推荐理由，最后请用户回复选项字母。
+
+- `CONTEXT_CONFIRM_PENDING`：A. 确认当前项目理解（推荐）；B. 修正项目名称、用途或受众；C. 暂停并补充资料。推荐理由：当前项目已有 README、SKILL.md 和 package.json 可交叉验证，先锁定“普通 AI 用户 → 可编辑 PPT”的理解能避免后续文案跑偏。
+- `COPY_DIRECTION_PENDING`：A. 项目介绍型（推荐）；B. 痛点—解决方案—结果型；C. 核心功能型；D. 使用场景与工作流型；E. 商业转化型。推荐理由：AI PPT Producer 面向普通 AI 用户，先讲清“不会做 PPT 也能得到可编辑演示文稿”最容易建立理解。
+- `STYLE_PENDING`：A. `reference-adaptive` → `bright-saas-real-scene`；B. `editorial-minimal` → `editorial-minimal-grid`（推荐）；C. `soft-3d-brand` → `soft-3d-brand-icon`。推荐理由：当前项目强调低漂移、可编辑和可审查，编辑式网格能把 Brief、样张和页面结构表达得更清楚；选择 A 后才可再选 `bright-saas-real-scene`、`dark-neon-product`、`high-density-commercial` 或 `cinematic-monitor-hero`。
+- `FONT_PENDING`：A. 微软雅黑 + Segoe UI（推荐）；B. 思源黑体 + Inter；C. HarmonyOS Sans + Inter；D. 阿里妈妈数黑体 + Montserrat；E. 得意黑 + Space Grotesk。推荐理由：项目同时包含中英文标题、流程和功能说明，A 在本机可读性与跨语言稳定性最适合；缺失字体必须确认回退。
+- `COMPANY_LOGO_PENDING`：A. 使用已授权 ENHE 原始 LOGO，黑色单色合成（推荐）；B. 使用原始 LOGO 并保持原色；C. 本次不放公司 LOGO。推荐理由：明亮真实场景上黑色 LOGO 对比度清晰，能与 AI PPT Producer 的编辑式版面保持一致。仅允许 `scale`、`position`；`recolor_monochrome`（映射为 `monochrome-black`）、`opacity`、`external_shadow` 需单独确认，禁止 `redraw`、`distort`、`change_letterforms`、`change_geometry`、`use_as_training_reference`。
+- `PROJECT_MARK_PENDING`：A. 本次不放项目标志（推荐）；B. 生成新的抽象项目标志；C. 使用当前上传或项目库标志。推荐理由：仓库目前没有独立项目标志，使用项目名称、页面卡片和流程结构更能准确表达可编辑 PPT 工作流，避免添加未经确认的符号。
+- `IP_CAST_PENDING`：A. 拓拓 + 星比（推荐）；B. 仅拓拓；C. 仅星比；D. 黑发动漫人物；E. 自定义 IP。推荐理由：普通 AI 用户更容易接受双角色叙事，拓拓可执行内容整理，星比可表达完成结果；自定义 IP 需要额外参考与权利确认。
+- `IP_COMBINATION_PENDING`：A. 拓拓 + 星比（推荐）；B. 仅拓拓；C. 仅星比；D. 黑发人物 + 拓拓；E. 黑发人物 + 星比；F. 三者；G. 上传自定义 IP；H. 返回上一层。推荐理由：当前项目的流程天然分为“整理输入”和“展示输出”两步，拓拓与星比分工最清晰，也能让封面保持亲和而不拥挤。
+- `CUSTOM_IP_REFERENCE_PENDING`：A. 确认真实可访问参考并仅作抽象分析（推荐）；B. 补充或更换参考；C. 取消自定义 IP。推荐理由：当前项目已有内置 IP 可用，只有在确实需要自定义角色时才进入此分支；先锁定参考来源可避免把他人形象直接复制进项目。
+- `CUSTOM_IP_DRAFT_PENDING`：A. 确认抽象 profile 草稿（推荐）；B. 修改 profile；C. 重新分析参考；D. 返回。推荐理由：AI PPT Producer 的视觉重点是内容工作流，先确认角色的抽象动作与职责，能控制角色不抢占页面信息层级。
+- `RIGHTS_CONFIRM_PENDING`：A. 确认 `user_authorized` 使用权、保存 scope 和 default scope（推荐，仅在权利明确时）；B. 声明 `analysis_only`；C. 声明 `unknown`；D. 声明 `missing`；E. 声明 `draft_unconfirmed`；F. 返回或取消。推荐理由：当前项目计划公开使用视觉资产，只有权利、保存范围和默认范围都明确时才可进入生成；其他选项必须阻塞生成。
+- `IP_USAGE_PENDING`：A. 方形图不放 IP、封面使用拓拓 + 星比（推荐）；B. 方形图与封面都使用组合；C. 方形图使用单个 IP、封面使用组合；D. 分别自定义位置与动作；E. 返回修改角色。推荐理由：方形图需要快速识别项目名称，封面才有足够空间表达“整理 → 完成”的角色分工，符合普通 AI 用户的阅读路径。
+- `SHOT_LIST_PENDING`：A. 确认推荐场景与动作（推荐）；B. 调整 LOGO 主视觉；C. 调整封面；D. 调整功能点或角色动作；E. 只交付方案和提示词。推荐理由：真实的个人内容创作工作室、主题笔记、页面卡片和编辑器能直接对应仓库的 Brief、Prototype 与可编辑 PPTX 流程。
+- `OUTPUT_SPEC_PENDING`：A. 确认默认 PNG/sRGB 双语规格（推荐）；B. GitHub Social Preview 1280x640；C. 仅 logo-only；D. 仅 cover-only；E. bilingual；F. custom dimensions（仅本地模板/渲染 API，需重新检查比例、安全区与可读性）；G. 分别设置 LOGO 与封面；H. 返回。推荐理由：当前目标是同时获得中文和英文的方形图与封面，默认 1254×1254 与 1774×887 能覆盖 Skill 平台和项目说明使用。
+- `COHERENCE_REVIEW_PENDING`：A. 采用推荐调整（推荐）；B. 保持当前要求并接受风险；C. 修改当前要求；D. 返回指定阶段；E. 取消。推荐理由：编辑式网格、同一真实场景、双语复用底图和“方形无 IP / 封面双 IP”分工能在四张输出之间保持一致。
+- `GENERATION_CONFIRM_PENDING`：A. 确认先生成 LOGO，再继续封面（推荐）；B. 仅生成 LOGO；C. 仅生成封面（需已有 LOGO）；D. 返回修改；E. 取消。推荐理由：先锁定方形主视觉，再复用品牌档案生成封面，可以减少普通用户最在意的标题、Logo 和配色漂移。
 
 LOGO 验收菜单：接受并继续封面；修改文字；修改构图；修改项目标志或 IP；返回画风或字体。封面验收菜单：接受全部并交付；修改指定图片；仅修改文字或布局；返回修改画风、字体或 IP；保留当前版本并结束。
 
