@@ -4,7 +4,7 @@
 
 `INTAKE → CONTEXT_ANALYSIS → CONTEXT_CONFIRM_PENDING → COPY_DIRECTION_PENDING → STYLE_PENDING → FONT_PENDING → COMPANY_LOGO_PENDING → PROJECT_MARK_PENDING → IP_CAST_PENDING → IP_COMBINATION_PENDING → (CUSTOM_IP_REFERENCE_PENDING → CUSTOM_IP_DRAFT_PENDING → RIGHTS_CONFIRM_PENDING)? → IP_USAGE_PENDING → SHOT_LIST_PENDING → OUTPUT_SPEC_PENDING → COHERENCE_REVIEW_PENDING → GENERATION_CONFIRM_PENDING → GENERATION_READY → GENERATE_LOGO_BASE → COMPOSE_LOGO_CARD → INTERNAL_LOGO_QA → LOGO_USER_REVIEW → GENERATE_COVER_BASE → COMPOSE_COVER → INTERNAL_COVER_QA → USER_REVIEW → DELIVERED`；任意待确认状态可 `CANCELLED`。
 
-一次只问一个问题。每阶段给出互斥选项并标明推荐项；推荐、默认、沉默和模型推断都不算确认。选项必须在同一条面向用户的消息中完整列出，并根据当前项目内容说明推荐理由；不得只写确认结论而省略选项。用户只说继续但未选择选项时，必须重新显示选项并请求明确选择，不得替用户猜测。用户可输入自定义要求。所有阶段支持 `修改`、`返回`、`取消`；发现版权、可读性或协调性风险时先提示，只有用户接受风险或采用调整后才推进。
+一次只问一个问题。每阶段给出互斥选项并标明推荐项；推荐、默认、沉默和模型推断都不算确认。选项必须在同一条面向用户的消息中完整列出，并根据当前项目内容说明推荐理由；不得只写确认结论而省略选项。每条消息最后请用户回复选项字母。用户只说继续但未选择选项时，必须重新显示选项并请求明确选择，不得替用户猜测。用户可输入自定义要求。所有阶段支持 `修改`、`返回`、`取消`；发现版权、可读性或协调性风险时先提示，只有用户接受风险或采用调整后才推进。
 
 ## 确认值与 CLI
 
@@ -41,16 +41,16 @@
 - `COPY_DIRECTION_PENDING`：A. 项目介绍型（推荐）；B. 痛点—解决方案—结果型；C. 核心功能型；D. 使用场景与工作流型；E. 商业转化型。推荐理由：AI PPT Producer 面向普通 AI 用户，先讲清“不会做 PPT 也能得到可编辑演示文稿”最容易建立理解。
 - `STYLE_PENDING`：A. `reference-adaptive` → `bright-saas-real-scene`；B. `editorial-minimal` → `editorial-minimal-grid`（推荐）；C. `soft-3d-brand` → `soft-3d-brand-icon`。推荐理由：当前项目强调低漂移、可编辑和可审查，编辑式网格能把 Brief、样张和页面结构表达得更清楚；选择 A 后才可再选 `bright-saas-real-scene`、`dark-neon-product`、`high-density-commercial` 或 `cinematic-monitor-hero`。
 - `FONT_PENDING`：A. 微软雅黑 + Segoe UI（推荐）；B. 思源黑体 + Inter；C. HarmonyOS Sans + Inter；D. 阿里妈妈数黑体 + Montserrat；E. 得意黑 + Space Grotesk。推荐理由：项目同时包含中英文标题、流程和功能说明，A 在本机可读性与跨语言稳定性最适合；缺失字体必须确认回退。
-- `COMPANY_LOGO_PENDING`：A. 使用已授权 ENHE 原始 LOGO，黑色单色合成（推荐）；B. 使用原始 LOGO 并保持原色；C. 本次不放公司 LOGO。推荐理由：明亮真实场景上黑色 LOGO 对比度清晰，能与 AI PPT Producer 的编辑式版面保持一致。仅允许 `scale`、`position`；`recolor_monochrome`（映射为 `monochrome-black`）、`opacity`、`external_shadow` 需单独确认，禁止 `redraw`、`distort`、`change_letterforms`、`change_geometry`、`use_as_training_reference`。
+- `COMPANY_LOGO_PENDING`：A. 使用已授权 ENHE 原始 LOGO，黑色单色合成（推荐）；B. 使用原始 LOGO 并保持原色；C. 本次不放公司 LOGO。推荐理由：明亮真实场景上黑色 LOGO 对比度清晰，能与 AI PPT Producer 的编辑式版面保持一致。确认前必须记录素材使用期限、保存 scope、default scope 与已确认的使用权利；将选择写入 `confirmed.company_logo_treatment`。仅允许 `scale`、`position`；`recolor_monochrome`（映射为 `monochrome-black`）、`opacity`、`external_shadow` 需单独确认，禁止 `redraw`、`distort`、`change_letterforms`、`change_geometry`、`use_as_training_reference`。
 - `PROJECT_MARK_PENDING`：A. 本次不放项目标志（推荐）；B. 生成新的抽象项目标志；C. 使用当前上传或项目库标志。推荐理由：仓库目前没有独立项目标志，使用项目名称、页面卡片和流程结构更能准确表达可编辑 PPT 工作流，避免添加未经确认的符号。
 - `IP_CAST_PENDING`：A. 拓拓 + 星比（推荐）；B. 仅拓拓；C. 仅星比；D. 黑发动漫人物；E. 自定义 IP。推荐理由：普通 AI 用户更容易接受双角色叙事，拓拓可执行内容整理，星比可表达完成结果；自定义 IP 需要额外参考与权利确认。
 - `IP_COMBINATION_PENDING`：A. 拓拓 + 星比（推荐）；B. 仅拓拓；C. 仅星比；D. 黑发人物 + 拓拓；E. 黑发人物 + 星比；F. 三者；G. 上传自定义 IP；H. 返回上一层。推荐理由：当前项目的流程天然分为“整理输入”和“展示输出”两步，拓拓与星比分工最清晰，也能让封面保持亲和而不拥挤。
 - `CUSTOM_IP_REFERENCE_PENDING`：A. 确认真实可访问参考并仅作抽象分析（推荐）；B. 补充或更换参考；C. 取消自定义 IP。推荐理由：当前项目已有内置 IP 可用，只有在确实需要自定义角色时才进入此分支；先锁定参考来源可避免把他人形象直接复制进项目。
 - `CUSTOM_IP_DRAFT_PENDING`：A. 确认抽象 profile 草稿（推荐）；B. 修改 profile；C. 重新分析参考；D. 返回。推荐理由：AI PPT Producer 的视觉重点是内容工作流，先确认角色的抽象动作与职责，能控制角色不抢占页面信息层级。
-- `RIGHTS_CONFIRM_PENDING`：A. 确认 `user_authorized` 使用权、保存 scope 和 default scope（推荐，仅在权利明确时）；B. 声明 `analysis_only`；C. 声明 `unknown`；D. 声明 `missing`；E. 声明 `draft_unconfirmed`；F. 返回或取消。推荐理由：当前项目计划公开使用视觉资产，只有权利、保存范围和默认范围都明确时才可进入生成；其他选项必须阻塞生成。
+- `RIGHTS_CONFIRM_PENDING`：A. 确认 `user_authorized` 使用权、保存 scope 和 default scope（推荐）；B. 声明 `analysis_only`；C. 声明 `unknown`；D. 声明 `missing`；E. 声明 `draft_unconfirmed`；F. 返回或取消。推荐理由：当前项目计划公开使用视觉资产，只有权利、保存范围和默认范围都明确时才可进入生成；其他选项必须阻塞生成；若权利尚未明确，不得选择 A。
 - `IP_USAGE_PENDING`：A. 方形图不放 IP、封面使用拓拓 + 星比（推荐）；B. 方形图与封面都使用组合；C. 方形图使用单个 IP、封面使用组合；D. 分别自定义位置与动作；E. 返回修改角色。推荐理由：方形图需要快速识别项目名称，封面才有足够空间表达“整理 → 完成”的角色分工，符合普通 AI 用户的阅读路径。
 - `SHOT_LIST_PENDING`：A. 确认推荐场景与动作（推荐）；B. 调整 LOGO 主视觉；C. 调整封面；D. 调整功能点或角色动作；E. 只交付方案和提示词。推荐理由：真实的个人内容创作工作室、主题笔记、页面卡片和编辑器能直接对应仓库的 Brief、Prototype 与可编辑 PPTX 流程。
-- `OUTPUT_SPEC_PENDING`：A. 确认默认 PNG/sRGB 双语规格（推荐）；B. GitHub Social Preview 1280x640；C. 仅 logo-only；D. 仅 cover-only；E. bilingual；F. custom dimensions（仅本地模板/渲染 API，需重新检查比例、安全区与可读性）；G. 分别设置 LOGO 与封面；H. 返回。推荐理由：当前目标是同时获得中文和英文的方形图与封面，默认 1254×1254 与 1774×887 能覆盖 Skill 平台和项目说明使用。
+- `OUTPUT_SPEC_PENDING`：A. 确认默认 PNG/sRGB 双语（bilingual）规格（推荐）；B. GitHub Social Preview 1280x640；C. 仅 logo-only；D. 仅 cover-only；E. custom dimensions（仅本地模板/渲染 API，需重新检查比例、安全区与可读性）；F. 分别设置 LOGO 与封面；G. 返回。推荐理由：当前目标是同时获得中文和英文的方形图与封面，默认 1254×1254 与 1774×887 能覆盖 Skill 平台和项目说明使用。
 - `COHERENCE_REVIEW_PENDING`：A. 采用推荐调整（推荐）；B. 保持当前要求并接受风险；C. 修改当前要求；D. 返回指定阶段；E. 取消。推荐理由：编辑式网格、同一真实场景、双语复用底图和“方形无 IP / 封面双 IP”分工能在四张输出之间保持一致。
 - `GENERATION_CONFIRM_PENDING`：A. 确认先生成 LOGO，再继续封面（推荐）；B. 仅生成 LOGO；C. 仅生成封面（需已有 LOGO）；D. 返回修改；E. 取消。推荐理由：先锁定方形主视觉，再复用品牌档案生成封面，可以减少普通用户最在意的标题、Logo 和配色漂移。
 

@@ -2,6 +2,8 @@ from pathlib import Path
 import re
 import unittest
 
+from brandloom.scripts.brandloom_core.models import QAState
+
 ROOT = Path(__file__).resolve().parents[1]
 SKILL_ROOT = ROOT / "brandloom"
 
@@ -62,24 +64,26 @@ class SkillContractTests(unittest.TestCase):
     def test_every_pending_state_has_labeled_options_and_recommendation(self) -> None:
         workflow = (SKILL_ROOT / "references" / "qa-dialogue-workflow.md").read_text(encoding="utf-8")
         menu = workflow.split("## 菜单", 1)[1].split("## 失效矩阵", 1)[0]
-        pending_states = (
-            "CONTEXT_CONFIRM_PENDING",
-            "COPY_DIRECTION_PENDING",
-            "STYLE_PENDING",
-            "FONT_PENDING",
-            "COMPANY_LOGO_PENDING",
-            "PROJECT_MARK_PENDING",
-            "IP_CAST_PENDING",
-            "IP_COMBINATION_PENDING",
-            "CUSTOM_IP_REFERENCE_PENDING",
-            "CUSTOM_IP_DRAFT_PENDING",
-            "RIGHTS_CONFIRM_PENDING",
-            "IP_USAGE_PENDING",
-            "SHOT_LIST_PENDING",
-            "OUTPUT_SPEC_PENDING",
-            "COHERENCE_REVIEW_PENDING",
-            "GENERATION_CONFIRM_PENDING",
-        )
+        expected_labels = {
+            "CONTEXT_CONFIRM_PENDING": "ABC",
+            "COPY_DIRECTION_PENDING": "ABCDE",
+            "STYLE_PENDING": "ABC",
+            "FONT_PENDING": "ABCDE",
+            "COMPANY_LOGO_PENDING": "ABC",
+            "PROJECT_MARK_PENDING": "ABC",
+            "IP_CAST_PENDING": "ABCDE",
+            "IP_COMBINATION_PENDING": "ABCDEFGH",
+            "CUSTOM_IP_REFERENCE_PENDING": "ABC",
+            "CUSTOM_IP_DRAFT_PENDING": "ABCD",
+            "RIGHTS_CONFIRM_PENDING": "ABCDEF",
+            "IP_USAGE_PENDING": "ABCDE",
+            "SHOT_LIST_PENDING": "ABCDE",
+            "OUTPUT_SPEC_PENDING": "ABCDEFG",
+            "COHERENCE_REVIEW_PENDING": "ABCDE",
+            "GENERATION_CONFIRM_PENDING": "ABCDE",
+        }
+        pending_states = tuple(item.value for item in QAState if item.value.endswith("_PENDING"))
+        self.assertEqual(set(expected_labels), set(pending_states))
         for state in pending_states:
             match = re.search(
                 rf"^- `{re.escape(state)}`：(?P<body>.*?)(?=^- `|\Z)",
@@ -88,9 +92,24 @@ class SkillContractTests(unittest.TestCase):
             )
             self.assertIsNotNone(match, state)
             body = match.group("body")
-            self.assertRegex(body, r"(?m)^\s*[A-Z]\.\s")
-            self.assertIn("推荐", body, state)
+            labels = "".join(re.findall(r"(?<![A-Z])([A-Z])\.\s", body))
+            self.assertEqual(labels, expected_labels[state], state)
+            self.assertEqual(len(re.findall(r"（推荐）", body)), 1, state)
+            self.assertRegex(body, r"[A-Z]\.\s[^；。\n]*（推荐）", state)
             self.assertIn("推荐理由", body, state)
+            self.assertRegex(body, r"推荐理由：(?=[^。\n]*(?:项目|AI PPT|PPT|普通 AI 用户|LOGO|封面))[^。\n]+", state)
+
+    def test_qa_message_contract_ends_with_explicit_choice_request(self) -> None:
+        workflow = (SKILL_ROOT / "references" / "qa-dialogue-workflow.md").read_text(encoding="utf-8")
+        skill_text = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("最后请用户回复选项字母", workflow)
+        self.assertIn("最后请用户回复选项字母", skill_text)
+
+    def test_company_logo_menu_preserves_rights_scope_and_treatment_contract(self) -> None:
+        workflow = (SKILL_ROOT / "references" / "qa-dialogue-workflow.md").read_text(encoding="utf-8")
+        body = re.search(r"^- `COMPANY_LOGO_PENDING`：(?P<body>.*?)(?=^- `|\Z)", workflow, flags=re.MULTILINE | re.DOTALL).group("body")
+        for phrase in ("使用期限", "保存 scope", "default scope", "权利", "confirmed.company_logo_treatment"):
+            self.assertIn(phrase, body)
 
     def test_skill_routes_generation_gate_to_host_image_tool(self) -> None:
         skill_text = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
