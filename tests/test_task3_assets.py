@@ -116,34 +116,39 @@ class Task3AssetTests(unittest.TestCase):
             self.assertEqual(selected.path, (ASSET_ROOT / "company-logo/enhe-white-v2/reference.png").resolve())
 
     def test_package_contains_exact_assets_and_excludes_incoming(self) -> None:
-        output = ROOT / "dist" / "task3-test.zip"
-        output.unlink(missing_ok=True)
-        result = subprocess.run([sys.executable, str(BUILD), "--source", str(ROOT / "brandloom"), "--output", str(output)], capture_output=True, text=True)
-        self.assertEqual(result.returncode, 0, result.stderr)
-        with zipfile.ZipFile(output) as archive:
-            names = set(archive.namelist())
-            for asset_id, (relative, source_name, _role, expected_hash) in EXPECTED.items():
-                packaged = f"brandloom/assets/defaults/{relative}"
-                self.assertIn(packaged, names)
-                payload = archive.read(packaged)
-                self.assertEqual(hashlib.sha256(payload).hexdigest(), expected_hash, asset_id)
-                stem = packaged.rsplit("/", 1)[1].rsplit(".", 1)[0]
-                sidecar = packaged.rsplit("/", 1)[0] + f"/{stem}.provenance.json"
-                self.assertIn(sidecar, names, asset_id)
-                provenance = json.loads(archive.read(sidecar).decode("utf-8"))
-                self.assertEqual(provenance["source_filename"], source_name)
-                self.assertEqual(provenance["sha256"], expected_hash)
-                self.assertEqual(provenance["reference_sha256"], expected_hash)
-                self.assertEqual(provenance["authorization_status"], "user_authorized")
-                self.assertEqual(provenance["distribution_scope"], "public_skill_package")
-                self.assertEqual(provenance["save_scope"], "skill-defaults")
-                self.assertIs(provenance["save_scope_confirmed"], True)
-                self.assertEqual(provenance["default_scope"], "skill-defaults")
-                self.assertIs(provenance["default_selection"], False)
-                with Image.open(BytesIO(payload)) as decoded:
-                    decoded.load()
-                    self.assertEqual((decoded.size, decoded.mode), EXPECTED_LAYOUT[asset_id])
-            self.assertFalse(any("incoming" in name or "staging" in name for name in names))
+        with TemporaryDirectory() as directory:
+            output = Path(directory) / "task3-test.zip"
+            self.assertNotEqual(output.parent, ROOT / "dist")
+            result = subprocess.run(
+                [sys.executable, str(BUILD), "--source", str(ROOT / "brandloom"), "--output", str(output)],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            with zipfile.ZipFile(output) as archive:
+                names = set(archive.namelist())
+                for asset_id, (relative, source_name, _role, expected_hash) in EXPECTED.items():
+                    packaged = f"brandloom/assets/defaults/{relative}"
+                    self.assertIn(packaged, names)
+                    payload = archive.read(packaged)
+                    self.assertEqual(hashlib.sha256(payload).hexdigest(), expected_hash, asset_id)
+                    stem = packaged.rsplit("/", 1)[1].rsplit(".", 1)[0]
+                    sidecar = packaged.rsplit("/", 1)[0] + f"/{stem}.provenance.json"
+                    self.assertIn(sidecar, names, asset_id)
+                    provenance = json.loads(archive.read(sidecar).decode("utf-8"))
+                    self.assertEqual(provenance["source_filename"], source_name)
+                    self.assertEqual(provenance["sha256"], expected_hash)
+                    self.assertEqual(provenance["reference_sha256"], expected_hash)
+                    self.assertEqual(provenance["authorization_status"], "user_authorized")
+                    self.assertEqual(provenance["distribution_scope"], "public_skill_package")
+                    self.assertEqual(provenance["save_scope"], "skill-defaults")
+                    self.assertIs(provenance["save_scope_confirmed"], True)
+                    self.assertEqual(provenance["default_scope"], "skill-defaults")
+                    self.assertIs(provenance["default_selection"], False)
+                    with Image.open(BytesIO(payload)) as decoded:
+                        decoded.load()
+                        self.assertEqual((decoded.size, decoded.mode), EXPECTED_LAYOUT[asset_id])
+                self.assertFalse(any("incoming" in name or "staging" in name for name in names))
 
     def test_same_stem_provenance_tamper_does_not_fall_back_to_directory_record(self) -> None:
         with TemporaryDirectory() as directory:

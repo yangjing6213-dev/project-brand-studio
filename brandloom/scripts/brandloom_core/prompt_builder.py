@@ -160,8 +160,10 @@ def build_base_prompt(
                 raise ValueError("stage style requires a confirmed presenter outfit")
             scene += (
                 " Include the same authorized main presenter shown in the person reference and a large presentation screen that is clearly visible. "
-                "For stable composition on wide and vertical canvases, place the presenter toward the left and the blank display toward the right; "
-                "on vertical canvases keep both clearly visible and give the display a distinct readable area. "
+                "For stable composition on wide and vertical canvases, place the presenter toward the left and the blank display toward the right. "
+                "Keep the display broad and nearly straight-on, with minimal perspective distortion, a clearly visible bezel, and one clean, flat screen plane for deterministic text placement. "
+                "Avoid steep keystone angles, curved screens, bright reflections, and glare crossing text areas so later copy sits naturally inside the display. "
+                "On vertical canvases, keep both presenter and screen clearly visible and give the display a distinct readable area. "
                 "The deterministic layout will place the main title outside the display and other copy inside it. "
                 f"Confirmed presenter outfit: {presenter_outfit.strip()}. "
                 f"Confirmed title base color: {base_color}; confirmed keyword accent: {accent_color}; emphasized title text: {emphasis_text}. "

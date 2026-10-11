@@ -13,8 +13,6 @@ import sys
 from typing import Any
 import uuid
 
-from PIL import ImageFont
-
 if __package__ in {None, ""}:  # direct execution from an installed Skill directory
     package_parent = str(Path(__file__).resolve().parents[2])
     if package_parent not in sys.path:
@@ -22,12 +20,15 @@ if __package__ in {None, ""}:  # direct execution from an installed Skill direct
 
 try:
     from .brandloom_core.asset_library import list_assets, register_asset, resolve_asset
-    from .brandloom_core.fonts import FontNotFoundError, load_font_profiles, resolve_font
+    from .brandloom_core.fonts import resolve_font_for_text
     from .brandloom_core.json_io import read_json_dataclass, write_json_dataclass
     from .brandloom_core.manifests import build_generation_manifest, write_manifest
     from .brandloom_core.models import AssetCategory, AssetScope, BrandBrief, QAState, QASession, RightsStatus, TaskMode
     from .brandloom_core.paths import project_output_dir, project_root, safe_project_slug
-    from .brandloom_core.renderer import render_brand_asset, rendered_copy_values, validate_composition_layout
+    from .brandloom_core.renderer import (
+        load_template, render_brand_asset, rendered_copy_values, required_font_texts,
+        validate_composition_layout,
+    )
     from .brandloom_core.renderer import BrandIntegrityError
     from .brandloom_core.treatments import canonicalize_logo_treatment, operation_for_treatment
     from .brandloom_core.state_machine import GENERATION_BACKEND, advance, assert_generation_backend, assert_generation_ready, confirm, invalidate_from
@@ -37,12 +38,15 @@ try:
     from .brandloom_core.platform_templates import build_cover_template, write_cover_template
 except ImportError:  # pragma: no cover - supports direct script execution
     from brandloom.scripts.brandloom_core.asset_library import list_assets, register_asset, resolve_asset
-    from brandloom.scripts.brandloom_core.fonts import FontNotFoundError, load_font_profiles, resolve_font
+    from brandloom.scripts.brandloom_core.fonts import resolve_font_for_text
     from brandloom.scripts.brandloom_core.json_io import read_json_dataclass, write_json_dataclass
     from brandloom.scripts.brandloom_core.manifests import build_generation_manifest, write_manifest
     from brandloom.scripts.brandloom_core.models import AssetCategory, AssetScope, BrandBrief, QAState, QASession, RightsStatus, TaskMode
     from brandloom.scripts.brandloom_core.paths import project_output_dir, project_root, safe_project_slug
-    from brandloom.scripts.brandloom_core.renderer import render_brand_asset, rendered_copy_values, validate_composition_layout
+    from brandloom.scripts.brandloom_core.renderer import (
+        load_template, render_brand_asset, rendered_copy_values, required_font_texts,
+        validate_composition_layout,
+    )
     from brandloom.scripts.brandloom_core.renderer import BrandIntegrityError
     from brandloom.scripts.brandloom_core.treatments import canonicalize_logo_treatment, operation_for_treatment
     from brandloom.scripts.brandloom_core.state_machine import GENERATION_BACKEND, advance, assert_generation_backend, assert_generation_ready, confirm, invalidate_from
@@ -455,38 +459,27 @@ def _assert_accepted_logo_binding(
     return copy_only_edit
 
 
-def _resolve_font_paths(brief: BrandBrief, *, workflow_required: bool = False) -> dict[str, Path]:
-    rendered = rendered_copy_values(brief)
-    required: list[str] = []
-    if rendered.get("title"):
-        required.append("heading")
-    if any(rendered.get(name) for name in ("subtitle", "value_line", "features")):
-        required.append("body")
-    if workflow_required:
-        required.extend(role for role in ("heading", "body") if role not in required)
+def _resolve_font_paths(
+    brief: BrandBrief,
+    template: dict[str, object],
+    *,
+    cache_dir: Path,
+) -> dict[str, Path]:
+    required_texts = required_font_texts(brief, template)
     roots_value = brief.fonts.get("project_paths", ())
     roots = tuple(Path(value).expanduser() for value in roots_value) if isinstance(roots_value, (list, tuple)) else ()
-    profiles = load_font_profiles()
     profile_id = brief.fonts.get("profile")
-    profile = profiles.get(str(profile_id)) if profile_id else None
     resolved: dict[str, Path] = {}
-    for role in required:
+    for role, text in required_texts.items():
         explicit = brief.fonts.get(role)
-        if explicit is not None:
-            if not isinstance(explicit, str) or not explicit.strip():
-                raise FontNotFoundError(f"confirmed {role} font path must be a non-empty string")
-            path = Path(explicit).expanduser().resolve()
-            if not path.is_file():
-                raise FontNotFoundError(f"confirmed {role} font does not exist: {path}")
-            try:
-                ImageFont.truetype(str(path), size=16)
-            except OSError as exc:
-                raise FontNotFoundError(f"confirmed {role} font is unreadable: {path}") from exc
-            resolved[role] = path
-        elif profile is not None:
-            resolved[role] = resolve_font(profile, role, roots).resolve()
-        else:
-            raise FontNotFoundError(f"confirmed {role} font path/profile is required")
+        resolved[role] = resolve_font_for_text(
+            str(profile_id) if profile_id else None,
+            role,
+            text,
+            roots,
+            cache_dir,
+            str(explicit) if isinstance(explicit, str) and explicit.strip() else None,
+        ).resolve()
     return resolved
 
 
@@ -588,7 +581,11 @@ def _request(args: argparse.Namespace) -> int:
         workflow_steps=target.get("workflow_steps"),
         style_profile=str(brief.style.get("profile", "")),
     )
-    font_paths = _resolve_font_paths(targeted_brief, workflow_required=bool(target.get("workflow_steps")))
+    font_paths = _resolve_font_paths(
+        targeted_brief,
+        template,
+        cache_dir=project_root(workspace) / "font-cache",
+    )
     validate_composition_layout(targeted_brief, template, font_paths)
     request = build_host_request(
         targeted_brief,
@@ -776,8 +773,12 @@ def _compose(args: argparse.Namespace) -> int:
     for reference in host_request.get("reference_assets", []):
         if isinstance(reference, dict):
             used_assets.append(dict(reference))
-    workflow_required = args.type == "cover" and (platform_target is None or bool(platform_target.get("workflow_steps")))
-    font_paths = _resolve_font_paths(render_brief, workflow_required=workflow_required)
+    template_config = load_template(Path(template))
+    font_paths = _resolve_font_paths(
+        render_brief,
+        template_config,
+        cache_dir=root / "font-cache",
+    )
     result = render_brand_asset(template, render_brief, base_image=base_path, asset_paths=asset_paths,
                                 font_paths=font_paths, output_dir=output_dir, logo_treatment=logo_treatment,
                                 confirmed_treatment=confirmed_treatment)

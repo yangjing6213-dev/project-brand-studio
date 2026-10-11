@@ -112,6 +112,7 @@ class SkillContractTests(unittest.TestCase):
         ):
             self.assertIn(required, workflow)
         self.assertIn("主讲人物和展示大屏必须同时清晰出现", style)
+        self.assertIn("深色描边/阴影", style)
         self.assertIn("`.brandloom/style-reference-library/`", style)
         self.assertIn("本地参考图库可用时，默认附带所选风格对应的图", style)
         self.assertIn("不进入提交、ZIP 或公开发行包", style)

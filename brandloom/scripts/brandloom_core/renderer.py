@@ -157,6 +157,61 @@ def rendered_copy_values(brief: BrandBrief | Mapping[str, object]) -> dict[str, 
     return rendered
 
 
+def required_font_texts(
+    brief: BrandBrief | Mapping[str, object],
+    template: Mapping[str, object],
+) -> dict[str, str]:
+    """Return every displayed text string grouped by the font role that draws it."""
+    rendered = rendered_copy_values(brief)
+    heading: list[str] = []
+    body: list[str] = []
+    if rendered.get("title"):
+        heading.append(str(rendered["title"]))
+    for key in ("subtitle", "value_line"):
+        if rendered.get(key):
+            body.append(str(rendered[key]))
+    features = rendered.get("features", ())
+    if isinstance(features, (list, tuple)):
+        body.extend(f"• {item}" for item in features)
+
+    overlays = template.get("overlays", {})
+    workflow = overlays.get("workflow_diagram") if isinstance(overlays, Mapping) else None
+    if isinstance(workflow, Mapping):
+        language = str(_copy(brief).get("language", "en"))
+        key = "zh" if language.startswith("zh") else "en"
+        detail_key = "detail_zh" if key == "zh" else "detail_en"
+        steps = workflow.get("steps", ())
+        labels: list[str] = []
+        details: list[str] = []
+        if isinstance(steps, list):
+            for step in steps[:4]:
+                if not isinstance(step, Mapping):
+                    continue
+                label = step.get(key, step.get("en", step.get("zh", "")))
+                if isinstance(label, str) and label.strip():
+                    labels.append(label.strip())
+                    detail = step.get(detail_key, "")
+                    details.append(detail.strip() if isinstance(detail, str) else "")
+        if len(labels) >= 2:
+            title = workflow.get("heading_zh" if key == "zh" else "heading_en")
+            if not isinstance(title, str) or not title.strip():
+                benefits_mode = workflow.get("workflow_mode") == "benefits"
+                title = ("核心收益" if benefits_mode else "关键步骤") if key == "zh" else (
+                    "KEY BENEFITS" if benefits_mode else "KEY STEPS"
+                )
+            heading.extend((title.strip(), *labels, *(str(index + 1) for index in range(len(labels)))))
+            subtitle = workflow.get("subtitle_zh" if key == "zh" else "subtitle_en", "")
+            if isinstance(subtitle, str) and subtitle.strip():
+                body.append(subtitle.strip())
+            body.extend(detail for detail in details if detail)
+    result: dict[str, str] = {}
+    if heading:
+        result["heading"] = "\n".join(heading)
+    if body:
+        result["body"] = "\n".join(body)
+    return result
+
+
 def _rgba(value: object, default: tuple[int, int, int, int]) -> tuple[int, int, int, int]:
     """Parse a template RGBA list while keeping overlay rendering fail-closed."""
     if not isinstance(value, (list, tuple)) or len(value) != 4:

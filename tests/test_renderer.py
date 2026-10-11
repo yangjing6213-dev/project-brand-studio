@@ -266,7 +266,8 @@ class RendererTests(unittest.TestCase):
                 output_dir=root / "out",
             )
             with Image.open(result.output_path) as image:
-                pixels = list(image.convert("RGB").getdata())
+                pixel_bytes = image.convert("RGB").tobytes()
+                pixels = set(zip(pixel_bytes[0::3], pixel_bytes[1::3], pixel_bytes[2::3]))
             self.assertIn((255, 215, 47), pixels)
             self.assertIn((255, 255, 255), pixels)
 

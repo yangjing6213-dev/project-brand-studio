@@ -1,0 +1,8 @@
+{
+  "source_reference": "User-provided image attachment selected as the English README cover.",
+  "source_filename": "cover-2x1-v10.png",
+  "sha256": "7d4ed7869fe1f4804547ed1b18eb10809565946ce12e301dc77eccf8ef8906fb",
+  "confirmation_source": "The user instructed that both supplied cover images be placed at the top of the bilingual public README.",
+  "authorization_status": "user_authorized",
+  "distribution_scope": "public_repository_documentation"
+}

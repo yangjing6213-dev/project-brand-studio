@@ -10,19 +10,34 @@ import tempfile
 import unittest
 import zipfile
 from pathlib import Path
+from unittest.mock import patch
 
 from PIL import Image
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 BUILD_SCRIPT = REPO_ROOT / "scripts" / "build_skill_package.py"
-PACKAGE_PATH = REPO_ROOT / "dist" / "brandloom.zip"
 
 
 class PackageContractTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temporary_directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary_directory.cleanup)
+        self.package_path = Path(self.temporary_directory.name) / "brandloom.zip"
+
+    def test_build_package_targets_a_temporary_directory(self) -> None:
+        with patch("tests.test_package.subprocess.run") as run:
+            self.build_package()
+
+        command = run.call_args.args[0]
+        self.assertIn("--output", command)
+        output_path = Path(command[command.index("--output") + 1])
+        self.assertEqual(output_path, self.package_path)
+        self.assertNotEqual(output_path.parent, REPO_ROOT / "dist")
+
     def build_package(self) -> None:
         subprocess.run(
-            [sys.executable, str(BUILD_SCRIPT)],
+            [sys.executable, str(BUILD_SCRIPT), "--output", str(self.package_path)],
             cwd=REPO_ROOT,
             check=True,
             capture_output=True,
@@ -31,7 +46,7 @@ class PackageContractTests(unittest.TestCase):
 
     def test_release_zip_contains_required_skill_content_and_excludes_local_paths(self) -> None:
         self.build_package()
-        with zipfile.ZipFile(PACKAGE_PATH) as archive:
+        with zipfile.ZipFile(self.package_path) as archive:
             names = archive.namelist()
 
         required = {
@@ -59,9 +74,9 @@ class PackageContractTests(unittest.TestCase):
 
     def test_release_zip_is_deterministic(self) -> None:
         self.build_package()
-        first = PACKAGE_PATH.read_bytes()
+        first = self.package_path.read_bytes()
         self.build_package()
-        self.assertEqual(first, PACKAGE_PATH.read_bytes())
+        self.assertEqual(first, self.package_path.read_bytes())
 
     def test_builder_rejects_assets_without_authorized_provenance(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:

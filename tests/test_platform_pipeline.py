@@ -7,11 +7,11 @@ from contextlib import redirect_stdout
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
 from PIL import Image
 
 from brandloom.scripts import brandloom_cli
-from brandloom.scripts.brandloom_core.fonts import discover_font_files, missing_glyphs
 from tests.font_test_utils import find_test_font
 
 
@@ -308,7 +308,7 @@ class PlatformPipelineTests(unittest.TestCase):
                 ])
             self.assertNotIn("generation_request", json.loads(state_path.read_text(encoding="utf-8")))
 
-    def test_request_rejects_unavailable_font_before_generation(self):
+    def test_request_recovers_unavailable_font_before_generation(self):
         with TemporaryDirectory() as directory:
             root = Path(directory)
             self._prepare_workspace(root)
@@ -321,55 +321,53 @@ class PlatformPipelineTests(unittest.TestCase):
             state["confirmed_brief_sha256"] = hashlib.sha256(brief_path.read_bytes()).hexdigest()
             state_path.write_text(json.dumps(state), encoding="utf-8")
 
-            with self.assertRaisesRegex(brandloom_cli.FontNotFoundError, "confirmed heading font does not exist"):
+            with patch("brandloom.scripts.brandloom_cli.resolve_font_for_text", return_value=find_test_font()) as resolve, patch(
+                "brandloom.scripts.brandloom_cli.validate_composition_layout"
+            ):
                 brandloom_cli.main([
                     "request", "--workspace", str(root), "--target-id", "github-social-preview",
                 ])
-            self.assertNotIn("generation_request", json.loads(state_path.read_text(encoding="utf-8")))
+            self.assertTrue(resolve.called)
+            self.assertEqual(resolve.call_args_list[0].args[-1], str(root / "missing-font.ttf"))
+            self.assertEqual(
+                json.loads(state_path.read_text(encoding="utf-8"))["generation_request"]["target_id"],
+                "github-social-preview",
+            )
 
-    def test_request_rejects_font_without_copy_glyphs_before_generation(self):
+    def test_request_recovers_font_without_copy_glyphs_before_generation(self):
         with TemporaryDirectory() as directory:
             root = Path(directory)
             self._prepare_workspace(root)
             brief_path = root / ".brandloom" / "brand-brief.json"
             brief = json.loads(brief_path.read_text(encoding="utf-8"))
-            brief["outputs"]["targets"][0]["copy"]["title"] = "中文项目标题"
-            unsupported_font = next((
-                path
-                for paths in discover_font_files().values()
-                for path in paths
-                if missing_glyphs(path, "中文项目标题")
-            ), None)
-            if unsupported_font is None:
-                self.skipTest("no installed font without Chinese glyphs is available for this regression test")
-            brief["fonts"]["heading"] = str(unsupported_font)
+            brief["outputs"]["targets"][0]["copy"]["title"] = "BrandLoom: 中文项目标题?!"
+            brief["fonts"]["heading"] = str(root / "font-without-punctuation.ttf")
             brief_path.write_text(json.dumps(brief, ensure_ascii=False), encoding="utf-8")
             state_path = root / ".brandloom" / "qa-state.json"
             state = json.loads(state_path.read_text(encoding="utf-8"))
             state["confirmed_brief_sha256"] = hashlib.sha256(brief_path.read_bytes()).hexdigest()
             state_path.write_text(json.dumps(state), encoding="utf-8")
 
-            with self.assertRaisesRegex(ValueError, "cannot render copy characters"):
+            with patch("brandloom.scripts.brandloom_cli.resolve_font_for_text", return_value=find_test_font()) as resolve, patch(
+                "brandloom.scripts.brandloom_cli.validate_composition_layout"
+            ):
                 brandloom_cli.main([
                     "request", "--workspace", str(root), "--target-id", "github-social-preview",
                 ])
-            self.assertNotIn("generation_request", json.loads(state_path.read_text(encoding="utf-8")))
+            heading_call = next(call for call in resolve.call_args_list if call.args[1] == "heading")
+            self.assertIn("?!", heading_call.args[2])
+            self.assertEqual(
+                json.loads(state_path.read_text(encoding="utf-8"))["generation_request"]["target_id"],
+                "github-social-preview",
+            )
 
-    def test_request_rejects_workflow_font_without_glyphs_before_generation(self):
+    def test_request_recovers_workflow_font_and_checks_workflow_text_before_generation(self):
         with TemporaryDirectory() as directory:
             root = Path(directory)
             self._prepare_workspace(root)
             brief_path = root / ".brandloom" / "brand-brief.json"
             brief = json.loads(brief_path.read_text(encoding="utf-8"))
-            unsupported_font = next((
-                path
-                for paths in discover_font_files().values()
-                for path in paths
-                if missing_glyphs(path, "中文项目标题")
-            ), None)
-            if unsupported_font is None:
-                self.skipTest("no installed font without Chinese glyphs is available for this regression test")
-            brief["fonts"]["heading"] = str(unsupported_font)
+            brief["fonts"]["heading"] = str(root / "font-without-chinese.ttf")
             brief["outputs"]["targets"][0]["language"] = "zh"
             brief["outputs"]["targets"][0]["workflow_steps"] = [
                 {"zh": "理解项目"}, {"zh": "交付结果"},
@@ -380,11 +378,19 @@ class PlatformPipelineTests(unittest.TestCase):
             state["confirmed_brief_sha256"] = hashlib.sha256(brief_path.read_bytes()).hexdigest()
             state_path.write_text(json.dumps(state), encoding="utf-8")
 
-            with self.assertRaisesRegex(ValueError, "cannot render workflow characters"):
+            with patch("brandloom.scripts.brandloom_cli.resolve_font_for_text", return_value=find_test_font()) as resolve, patch(
+                "brandloom.scripts.brandloom_cli.validate_composition_layout"
+            ):
                 brandloom_cli.main([
                     "request", "--workspace", str(root), "--target-id", "github-social-preview",
                 ])
-            self.assertNotIn("generation_request", json.loads(state_path.read_text(encoding="utf-8")))
+            heading_call = next(call for call in resolve.call_args_list if call.args[1] == "heading")
+            self.assertIn("理解项目", heading_call.args[2])
+            self.assertIn("交付结果", heading_call.args[2])
+            self.assertEqual(
+                json.loads(state_path.read_text(encoding="utf-8"))["generation_request"]["target_id"],
+                "github-social-preview",
+            )
 
     def test_request_rejects_copy_that_cannot_fit_before_generation(self):
         with TemporaryDirectory() as directory:
