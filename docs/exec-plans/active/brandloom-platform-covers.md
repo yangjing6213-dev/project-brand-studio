@@ -16,7 +16,8 @@ Replace the Skill's logo-square-first workflow with user-selected YouTube, Douyi
 ## Current Repository State
 - Governing instructions: user-provided AGENTS.md instructions; no repository AGENTS.md found in the active worktree.
 - Relevant architecture: `BrandBrief.outputs` is a JSON mapping; platform/custom output sizes resolve from a JSON registry; versioned templates and manifests are created per selected target. The confirmed policy is exact-ratio proportional resize only, with no crop or distortion.
-- Initial Git state: isolated branch `codex/brandloom-platform-cover-qa` from `f6fc1ed`; working tree already contains uncommitted implementation and tests from the preceding BrandLoom iteration. Main worktree was left untouched.
+- Initial Git state: isolated branch `codex/brandloom-platform-cover-qa` from `f6fc1ed`; working tree already contained uncommitted implementation and tests from the preceding BrandLoom iteration. The completed implementation was committed as `b359715` and fast-forwarded locally to `main`; no push or publication occurred.
+- The pre-existing local visual edits and three PNG deliverables were preserved in the main worktree. A protective stash remains available as `stash@{0}`; it was not dropped. The isolated worktree remains available at `.worktrees/brandloom-platform-cover-qa`.
 - Runtime: bundled Python 3.12.14. The current final verification is recorded below; the system Python alias is unavailable in this host, so checks use the bundled Python executable.
 
 ## Task Plan
@@ -41,29 +42,32 @@ Replace the Skill's logo-square-first workflow with user-selected YouTube, Douyi
 - The exact user-confirmed workflow-card style is implemented and recorded: thin outlines, localized translucent/frosted fill, no whole-image blur or outer frame, smooth corners, and adequate text spacing.
 
 ## Current Work
-- Runtime, QA contract, and documentation are implemented. The independent review's final finding is now fixed: request preflight checks actual font glyph coverage and copy/workflow text fit before a generation request can be emitted; overflow now stops instead of silently falling back to the smallest font.
+- Runtime, QA contract, and documentation are implemented. Request preflight checks actual non-ASCII font glyph coverage and copy/workflow text fit before a generation request can be emitted; overflow stops instead of silently falling back to the smallest font.
 - Four focused regression tests cover unsupported glyphs in main copy and workflow labels, plus text that cannot fit in the main copy box or workflow card. All pass.
-- Independent rereview of the final fix found no Critical or Important issues. It recorded one Minor edge case: glyph validation focuses on non-ASCII characters, so an unusual font missing an ASCII glyph could evade this check; this is accepted as a low-risk residual for this integration.
-- The current candidate package is `dist/brandloom-platform-covers-verified-20261011-r5.zip`; it is a local ignored build artifact, not committed or published.
+- The branch was locally integrated into `main` by fast-forward at `b359715`. A post-integration independent review found no Critical, Important, or Minor findings; it confirmed preflight and drawing share the same workflow geometry and that the previously confirmed cover layout values remain intact.
+- The optional Skill Creator validator was unblocked without changing project dependencies: PyYAML was exposed using a temporary process-scoped `PYTHONPATH`, and Python UTF-8 mode resolved Windows console encoding. It reported `Skill is valid!`.
+- The verified candidate package is `dist/brandloom-platform-covers-verified-20261011-r6.zip`; it is a local ignored build artifact, not committed or published.
 
 ## Remaining Work
-- Commit the isolated branch and locally integrate it while preserving the unrelated dirty main-worktree visual edits; then verify the integrated result. Do not push or publish.
-- Host image generation and human visual review of a real project cover are not part of this implementation run; perform them when an actual project generation is initiated.
+- No remaining code integration work for this request. Do not push or publish.
+- Host image generation and human visual review of a real project cover were not part of this implementation/integration request; perform them when an actual project generation is initiated.
 
 ## Failures
 - An initial full-suite run exposed implementation defects and stale fixtures: a manifest variable typo, fixtures without an explicit company-logo choice, an obsolete legacy-cover expectation, and assertions that no longer matched the confirmed card opacity wording. These were corrected without weakening validation; the final suite passed.
 - Independent review findings were addressed: each platform compose now needs a current preflight request ID tied to the confirmed target and brief hash; targetless legacy covers need accepted logo-card evidence before state transition; Style B requires confirmed clothing and a contrast-safe accent; Style D requires an explicitly confirmed project-style source.
 - The final independent review found that font-file existence alone did not prove character coverage or layout fit and that workflow card labels could overflow. The preflight now checks every displayed copy slot and workflow heading/subtitle/label/detail against the selected fonts and layout; it fails closed before emitting a generation request. The regression tests were first observed failing, then passed after the fix.
-- Independent rereview after the fix found no Critical or Important issues. Ruling: accept its single Minor note about rare fonts missing ASCII glyphs as a low-risk residual; the reported issue was missing Chinese glyphs and the new preflight now checks Chinese copy and workflow text.
+- Independent rereview before integration found no Critical or Important issues and noted a low-risk edge case: a rare font missing an ASCII glyph may evade the non-ASCII glyph check. Ruling: accept this minor residual; the actual reported defect (missing Chinese glyphs) is covered by preflight. Post-integration independent review found no findings.
 - Skill Creator's auxiliary validator initially lacked PyYAML in the bundled Python environment and encountered Windows console encoding with Chinese text. PyYAML was exposed through a temporary process-scoped `PYTHONPATH` and the validator ran with Python UTF-8 mode. It reported `Skill is valid!`; no project dependency or validator script was changed.
 
 ## Evidence
-- Bundled Python `-m unittest discover -s tests -q` -> 225 tests passed, 1 skipped.
+- Bundled Python `-m unittest discover -s tests -q` on the integrated main tree -> 226 tests passed, 1 skipped.
 - Focused platform/prompt tests -> 36 passed; pipeline, legacy-contract, and Skill-contract tests -> 62 passed.
 - Bundled Python `-m compileall -q brandloom/scripts` -> passed.
 - Skill Creator `quick_validate.py brandloom` -> `Skill is valid!`; PyYAML was exposed only through a temporary process-scoped `PYTHONPATH`, and `-X utf8` handled the Windows console encoding. No project/runtime dependency was added.
-- `scripts/build_skill_package.py --output dist/brandloom-platform-covers-verified-20261011-r5.zip` -> succeeded; archive contains 63 entries including the platform registry and templates, with no forbidden entries (`.brandloom`, staging, tests, docs, cache, or `.git`). SHA-256: `31c37148bd76c04fb3a31beba0143da1bd5f88038c98061a282366291908b512`.
+- `scripts/build_skill_package.py --output dist/brandloom-platform-covers-verified-20261011-r6.zip` -> succeeded; archive contains 63 entries including the platform registry and templates, with no forbidden entries (`.brandloom`, staging, tests, docs, cache, or `.git`). SHA-256: `c60054391837d066eb046cdcabbe9a58ca88e64d5460a1ed4af39b898e16e53f`.
 - `git diff --check` -> passed (Git printed only expected LF-to-CRLF notices for three Markdown files).
+- Post-integration independent review -> no Critical, Important, or Minor findings. It was read-only and did not rerun tests.
+- Local Git integration -> `main` points to `b359715` (`feat: add multi-platform BrandLoom cover workflow`); no remote write was performed. The original local visual files and their pending edits remain uncommitted and untouched by publication actions.
 
 ## Important Decisions
 - The default is separate per-platform composition, never stretching a completed image across aspect ratios.
@@ -76,7 +80,7 @@ Replace the Skill's logo-square-first workflow with user-selected YouTube, Douyi
 - Glyph coverage validation checks non-ASCII characters; a rare font missing an ASCII glyph may not be caught by preflight.
 
 ## Final Acceptance
-- Status: pending local integration verification; no artwork or publishing acceptance is claimed.
+- Status: PASS for implementation, auxiliary validation, and local branch integration. No artwork generation, visual acceptance, or publishing acceptance is claimed.
 - Requirements verified: project-specific visible QA choices, platform/custom target resolution, target-specific layout and copy, proportional resize-only policy, no-crop enforcement, independent output manifests/reviews, and package exclusions.
 - Not run: host image generation and manual visual review; there is no new artwork from this implementation task to inspect.
-- Remaining risk: visually inspect each generated canvas before any external use or publication.
+- Remaining risk: visually inspect each generated canvas before any external use or publication. The working tree intentionally retains local visual edits and PNGs; `stash@{0}` remains as a recovery copy.

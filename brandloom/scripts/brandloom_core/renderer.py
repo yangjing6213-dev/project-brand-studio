@@ -259,7 +259,6 @@ def _draw_emphasized_title(
             draw.text((highlighted_x + font.getlength(highlighted), line_y), after, font=font, fill=base_color)
         cursor = line_end + 1
 
-
 def _draw_step_icon(draw: ImageDraw.ImageDraw, center: tuple[int, int], index: int, color: tuple[int, int, int, int]) -> None:
     """Draw a small geometric stage icon without relying on an external icon font."""
     cx, cy = center
@@ -291,6 +290,30 @@ def _fit_overlay_font(font_path: Path | str, text: str, *, max_size: int, min_si
         if bounds[2] - bounds[0] <= max_width:
             return font
     raise BrandIntegrityError(f"workflow text does not fit available width {max_width}")
+
+
+def _workflow_geometry(
+    config: Mapping[str, object], *, width: int, height: int, step_count: int,
+) -> tuple[int, int, int, int]:
+    """Use confirmed geometry when it fits; otherwise adapt cards to the target canvas."""
+    heading_height = max(44, round(height * 0.13))
+    try:
+        heading_height = max(44, int(config.get("heading_height", heading_height)))
+        node_gap = max(8, int(config.get("node_gap", round(height * 0.018))))
+        inner_padding = max(12, int(config.get("inner_padding", round(min(width, height) * 0.025))))
+    except (TypeError, ValueError):
+        node_gap = max(8, round(height * 0.018))
+        inner_padding = max(12, round(min(width, height) * 0.025))
+
+    available_height = height - heading_height - node_gap * (step_count - 1)
+    requested_height = config.get("node_height")
+    if type(requested_height) is int and requested_height >= 70 and requested_height * step_count <= available_height:
+        node_height = requested_height
+    else:
+        node_height = available_height // step_count if step_count > 0 else 0
+    if step_count < 2 or node_height < 70:
+        raise BrandIntegrityError("workflow diagram area is too small for readable text")
+    return heading_height, node_gap, node_height, inner_padding
 
 
 def _validate_workflow_text(
@@ -328,13 +351,9 @@ def _validate_workflow_text(
     if len(labels) < 2:
         return
 
-    heading_height = max(44, round(height * 0.13))
-    node_gap = max(8, round(height * 0.018))
-    node_height = (height - heading_height - node_gap * (len(labels) - 1)) // len(labels)
-    if node_height < 70:
-        raise BrandIntegrityError("workflow diagram area is too small for readable text")
-
-    inner_padding = max(12, round(min(width, height) * 0.025))
+    _, _, node_height, inner_padding = _workflow_geometry(
+        config, width=width, height=height, step_count=len(labels),
+    )
     title = config.get("heading_zh" if key == "zh" else "heading_en")
     if not isinstance(title, str) or not title.strip():
         benefits_mode = config.get("workflow_mode") == "benefits"
@@ -425,8 +444,6 @@ def validate_composition_layout(
             font_paths=font_paths,
             language=str(_copy(brief).get("language", "en")),
         )
-
-
 def _draw_workflow_diagram(
     output: Image.Image,
     config: Mapping[str, object],
@@ -452,12 +469,6 @@ def _draw_workflow_diagram(
     body_path = font_paths.get("body") or heading_path
     if heading_path is None or body_path is None:
         return
-    try:
-        node_gap = max(12, int(config.get("node_gap", 20)))
-        inner_padding = max(12, round(min(width, height) * 0.025))
-    except (TypeError, ValueError):
-        node_gap, inner_padding = 20, 24
-
     normalized_steps: list[str] = []
     step_details: list[str] = []
     for step in steps[:4]:
@@ -473,11 +484,9 @@ def _draw_workflow_diagram(
     if len(normalized_steps) < 2:
         return
 
-    heading_height = max(44, round(height * 0.13))
-    node_gap = max(8, round(height * 0.018))
-    node_height = (height - heading_height - node_gap * (len(normalized_steps) - 1)) // len(normalized_steps)
-    if node_height < 70:
-        return
+    heading_height, node_gap, node_height, inner_padding = _workflow_geometry(
+        config, width=width, height=height, step_count=len(normalized_steps),
+    )
 
     accent = _rgba(config.get("accent"), (56, 193, 255, 255))
     secondary = _rgba(config.get("secondary"), (126, 112, 239, 255))

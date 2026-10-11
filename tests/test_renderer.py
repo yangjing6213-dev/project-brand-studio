@@ -11,6 +11,7 @@ from brandloom.scripts.brandloom_core.models import BrandBrief
 from brandloom.scripts.brandloom_core.renderer import (
     BrandIntegrityError,
     TextOverflowError,
+    _workflow_geometry,
     render_brand_asset,
 )
 from tests.font_test_utils import find_test_font
@@ -30,6 +31,17 @@ class RendererTests(unittest.TestCase):
 
     def _font(self) -> Path:
         return find_test_font()
+
+    def test_workflow_geometry_preserves_confirmed_values_when_they_fit(self) -> None:
+        self.assertEqual(
+            _workflow_geometry(
+                {"heading_height": 98, "node_gap": 20, "node_height": 142, "inner_padding": 24},
+                width=810,
+                height=798,
+                step_count=4,
+            ),
+            (98, 20, 142, 24),
+        )
 
     def _fixtures(self, root: Path) -> tuple[Path, Path]:
         base = root / "base.png"
