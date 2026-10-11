@@ -12,7 +12,44 @@ python brandloom/scripts/brandloom_cli.py init --workspace <workspace>
 ```
 
 The CLI is an offline state, asset, composition, validation, and delivery
-boundary. It does not call an image provider. The host Skill obtains a base
-image only after the confirmed QA gate and passes its returned path to
-`compose`. Run `logo-card` composition, validation, and reviewed delivery
-before composing a `cover`.
+boundary. It does not call an image provider. The host Skill obtains one base
+image per selected target only after the confirmed QA gate, then passes the
+tool-returned path to `compose`. The new flow exports platform covers and does
+not create or approve a square logo image.
+
+Selected targets, exact dimensions, language, confirmed copy, scene concept,
+and optional workflow cards are recorded in
+`.brandloom/brand-brief.json` → `outputs.targets`. Each target is composed,
+validated, and manually reviewed independently. After one target is accepted,
+the session returns to `GENERATION_READY` for the next selected target; it only
+reaches `DELIVERED` when all selected targets are accepted.
+
+For example, after the Skill has confirmed the GitHub Social Preview target and
+before invoking the host image tool, preflight the request for the confirmed
+target. Preflight also validates the layout and workflow copy, resolves the
+selected project mark and required fonts, and checks the approved company-logo
+and reference selections. The output contains the approved scene prompt,
+dimensions, and all reference image paths that must be passed to the host tool:
+
+```powershell
+python brandloom/scripts/brandloom_cli.py request --workspace <workspace> --target-id github-social-preview
+```
+
+Only after the preflight succeeds, ask the host image tool for the base image.
+After it returns a 2:1 base image:
+
+```powershell
+python brandloom/scripts/brandloom_cli.py compose --workspace <workspace> --type cover --target-id github-social-preview --request-id <request_id-from-preflight> --base <returned-image-path>
+python brandloom/scripts/brandloom_cli.py validate --workspace <workspace> --type cover --target-id github-social-preview
+python brandloom/scripts/brandloom_cli.py deliver --workspace <workspace> --type cover --target-id github-social-preview --reviewed
+```
+
+The platform presets and their official/recommended status are listed in
+`references/output-specs.md`. A base may be resized only when its aspect ratio
+exactly matches the target; resizing is proportional and never crops, distorts,
+or overwrites the source. A mismatched ratio stops the current target. Custom
+dimensions are limited to 320–8192 pixels per side and 16 megapixels total.
+
+The old `logo-card` CLI route remains only for historical workspaces that do
+not have platform targets configured. It is rejected when a new platform-cover
+target list exists.

@@ -14,6 +14,7 @@ from typing import Iterable, Mapping
 from PIL import Image, ImageCms
 
 from .models import BrandBrief
+from .platform_outputs import resolve_output_target, same_aspect_ratio
 from .treatments import canonicalize_logo_treatment, operation_for_treatment
 
 
@@ -134,6 +135,16 @@ def _company_logo_hash(manifest: Mapping[str, object], asset_hashes: Mapping[str
     return ""
 
 
+def _brief_explicitly_omits_logo(brief: BrandBrief | Mapping[str, object] | None) -> bool:
+    if brief is None:
+        return False
+    assets = brief.assets if isinstance(brief, BrandBrief) else brief.get("assets", {})
+    if not isinstance(assets, Mapping) or "company_logo" not in assets:
+        return False
+    value = assets.get("company_logo")
+    return value is None or value is False or (isinstance(value, str) and value.strip().casefold() in {"", "none"})
+
+
 def _path_collision(output_path: Path, existing: Iterable[object] | None) -> bool:
     if existing is None:
         return False
@@ -221,7 +232,13 @@ def _asset_integrity(entry: object, *, base: Path | None) -> bool:
         "asset_id", "category", "scope", "rights_status", "path",
     )):
         return False
-    if entry.get("rights_status") != "user_authorized":
+    is_user_asset = entry.get("rights_status") == "user_authorized"
+    is_analysis_style_reference = (
+        entry.get("category") == "style-reference"
+        and entry.get("rights_status") == "analysis_only"
+        and entry.get("scope") in {"this_run", "local-style-reference-library"}
+    )
+    if not (is_user_asset or is_analysis_style_reference):
         return False
     expected = entry.get("expected_sha256")
     observed = entry.get("observed_sha256")
@@ -234,7 +251,15 @@ def _asset_integrity(entry: object, *, base: Path | None) -> bool:
     return not digest or (isinstance(digest, str) and digest.lower() == str(observed).lower())
 
 
-def _host_request_integrity(value: object, *, base: Path | None, require_accepted_logo: bool = False, expected_output_type: str | None = None, expected_dimensions: tuple[int, int] | None = None) -> bool:
+def _host_request_integrity(
+    value: object,
+    *,
+    base: Path | None,
+    require_accepted_logo: bool = False,
+    expected_output_type: str | None = None,
+    expected_dimensions: tuple[int, int] | None = None,
+    expected_target_id: str | None = None,
+) -> bool:
     if value is None:
         return False
     if not isinstance(value, Mapping) or value.get("schema_version") != "1.0" or value.get("backend") != "host_builtin_image_tool":
@@ -242,6 +267,19 @@ def _host_request_integrity(value: object, *, base: Path | None, require_accepte
     if expected_output_type and str(value.get("output_type", "")).replace("-", "_") != expected_output_type:
         return False
     ratio = "1:1" if expected_dimensions == (1254, 1254) else "2:1" if expected_dimensions == (1774, 887) else None
+    if expected_target_id is not None:
+        if value.get("target_id") != expected_target_id or expected_dimensions is None:
+            return False
+        try:
+            target = resolve_output_target(
+                expected_target_id,
+                expected_dimensions if expected_target_id == "custom" else None,
+            )
+        except ValueError:
+            return False
+        if tuple(target["dimensions"]) != expected_dimensions:
+            return False
+        ratio = str(target["ratio"])
     if not isinstance(value.get("output_type"), str) or not isinstance(value.get("aspect_ratio"), str) or (ratio and value.get("aspect_ratio") != ratio):
         return False
     if not isinstance(value.get("dimensions"), list) or tuple(value["dimensions"]) != expected_dimensions or not isinstance(value.get("prompt"), str) or not value["prompt"]:
@@ -257,13 +295,19 @@ def _host_request_integrity(value: object, *, base: Path | None, require_accepte
         raw_path = entry.get("path")
         path = _recorded_path(raw_path, base)
         digest = entry.get("sha256")
+        category = entry.get("category")
+        rights = entry.get("rights_status")
+        reference_valid = (
+            category == "ip-character" and rights == "user_authorized"
+            or category == "person-reference" and rights == "user_authorized"
+            or category == "style-reference" and rights == "analysis_only"
+        )
         if (
             path is None or not isinstance(raw_path, str) or not Path(raw_path).is_absolute() or Path(raw_path) != path
             or not path.is_file()
             or not _valid_sha256(digest)
             or _sha256(path) != str(digest).lower()
-            or entry.get("rights_status") != "user_authorized"
-            or entry.get("category") != "ip-character"
+            or not reference_valid
             or not isinstance(entry.get("profile_cues"), str)
             or not entry.get("profile_cues")
         ):
@@ -300,6 +344,43 @@ def _png_checks(output: Path, expected_dimensions: tuple[int, int]) -> dict[str,
     return result
 
 
+def _within_target_file_size_limit(output: Path, target_id: str | None) -> bool:
+    """Enforce a platform-published file-size ceiling when one is specified."""
+    if target_id is None:
+        return True
+    if target_id == "custom":
+        return True
+    try:
+        target = resolve_output_target(target_id)
+    except ValueError:
+        return False
+    safe_area = target.get("safe_area")
+    if not isinstance(safe_area, Mapping) or "maximum_file_bytes" not in safe_area:
+        return True
+    maximum = safe_area.get("maximum_file_bytes")
+    if type(maximum) is not int or maximum <= 0 or not output.is_file():
+        return False
+    try:
+        actual = output.stat().st_size
+    except OSError:
+        return False
+    if safe_area.get("maximum_file_bytes_exclusive") is True:
+        return actual < maximum
+    return actual <= maximum
+
+
+def _image_dimensions(path: Path | None) -> tuple[int, int] | None:
+    if path is None or not path.is_file():
+        return None
+    try:
+        with Image.open(path) as image:
+            image.verify()
+        with Image.open(path) as image:
+            return image.size
+    except (OSError, SyntaxError, ValueError):
+        return None
+
+
 def validate_output(
     output_path: Path,
     *,
@@ -317,6 +398,7 @@ def validate_output(
     brief_path: Path | None = None,
     manifest_path: Path | None = None,
     output_root: Path | None = None,
+    target_id: str | None = None,
 ) -> QAReport:
     """Run offline automated checks and report manual visual review separately."""
     output = Path(output_path)
@@ -348,7 +430,6 @@ def validate_output(
     assets = payload.get("assets")
     checks["manifest_assets"] = (
         isinstance(assets, list)
-        and bool(assets)
         and all(_asset_integrity(entry, base=manifest_base) for entry in assets)
     )
     requested_type = payload.get("output_type")
@@ -359,12 +440,41 @@ def validate_output(
         and (not expected_type or requested_type.replace("-", "_") == expected_type)
     )
     checks["manifest_rendered_copy"] = isinstance(payload.get("rendered_copy"), Mapping)
+    if target_id is None:
+        checks["manifest_target"] = True
+    else:
+        target = payload.get("output_target")
+        checks["manifest_target"] = (
+            payload.get("target_id") == target_id
+            and isinstance(target, Mapping)
+            and target.get("id") == target_id
+            and isinstance(target.get("dimensions"), list)
+            and tuple(target["dimensions"]) == expected_dimensions
+        )
+    checks["target_file_size"] = _within_target_file_size_limit(output, target_id)
     checks["manifest_host_request"] = _host_request_integrity(
         payload.get("host_request"), base=manifest_base,
-        require_accepted_logo=str(requested_type).replace("-", "_") == "cover",
+        require_accepted_logo=str(requested_type).replace("-", "_") == "cover" and target_id is None,
         expected_output_type=expected_type,
         expected_dimensions=expected_dimensions,
+        expected_target_id=target_id,
     )
+    if target_id is not None and expected_dimensions is not None:
+        base_entry = payload.get("base_image")
+        base_path = _recorded_path(base_entry.get("path"), manifest_base) if isinstance(base_entry, Mapping) else None
+        observed_base_dimensions = _image_dimensions(base_path)
+        recorded_base_dimensions = payload.get("generated_base_dimensions")
+        try:
+            recorded_pair = tuple(recorded_base_dimensions) if isinstance(recorded_base_dimensions, list) else None
+        except TypeError:
+            recorded_pair = None
+        checks["manifest_base_aspect_ratio"] = (
+            observed_base_dimensions is not None
+            and observed_base_dimensions == recorded_pair
+            and same_aspect_ratio(observed_base_dimensions, expected_dimensions)
+        )
+    else:
+        checks["manifest_base_aspect_ratio"] = True
     output_entry = payload.get("output")
     recorded_output = _recorded_path(output_entry.get("path"), manifest_base) if isinstance(output_entry, Mapping) else None
     checks["output_manifest_path"] = recorded_output == output.resolve()
@@ -376,12 +486,15 @@ def validate_output(
     for name in (
         "manifest_brief", "manifest_template", "manifest_base_image", "manifest_output",
         "manifest_fonts", "manifest_assets", "manifest_host_request", "output_manifest_path",
-        "manifest_output_type", "manifest_rendered_copy", "output_contained",
+        "manifest_output_type", "manifest_rendered_copy", "manifest_target", "manifest_base_aspect_ratio", "target_file_size", "output_contained",
     ):
         if not checks[name]:
             failures.append(name)
     logo_hash = _company_logo_hash(payload, hashes)
-    checks["company_logo_hash"] = bool(logo_hash)
+    explicitly_no_logo = _brief_explicitly_omits_logo(brief)
+    company_logo_entries = [entry for entry in (assets if isinstance(assets, list) else ())
+                            if isinstance(entry, Mapping) and str(entry.get("category", "")) == "company-logo"]
+    checks["company_logo_hash"] = bool(logo_hash) or (explicitly_no_logo and not company_logo_entries)
     if not checks["company_logo_hash"]:
         failures.append("company_logo_hash")
     treatment_present = "logo_treatment" in payload
@@ -425,11 +538,11 @@ def validate_output(
         checks["manifest_logo_operation"] = operation == operation_for_treatment(treatment)
         checks["manifest_logo_confirmation"] = confirmation == treatment
         checks["manifest_logo_source_hash"] = isinstance(source_hash, str) and bool(source_hash) and source_hash == logo_hash
-        company_entries = [entry for entry in (assets if isinstance(assets, list) else ())
-                           if isinstance(entry, Mapping) and str(entry.get("category", "")) == "company-logo"]
-        checks["manifest_logo_source_hash"] = checks["manifest_logo_source_hash"] and bool(company_entries) and all(
-            str(entry.get("sha256", entry.get("observed_sha256", ""))) == str(source_hash) for entry in company_entries
+        checks["manifest_logo_source_hash"] = checks["manifest_logo_source_hash"] and bool(company_logo_entries) and all(
+            str(entry.get("sha256", entry.get("observed_sha256", ""))) == str(source_hash) for entry in company_logo_entries
         )
+    elif explicitly_no_logo:
+        checks["manifest_logo_source_hash"] = not company_logo_entries and not payload.get("logo_source_hash")
     for name in ("manifest_logo_treatment", "manifest_logo_operation", "manifest_logo_confirmation", "manifest_logo_source_hash"):
         if not checks[name]:
             failures.append(name)

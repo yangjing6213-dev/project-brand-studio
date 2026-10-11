@@ -5,6 +5,7 @@ import hashlib
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
 from PIL import Image
 
@@ -33,7 +34,7 @@ class PipelineTests(unittest.TestCase):
             "confirmed": {
                 key: True
                 for key in (
-                    "context", "copy", "style", "font", "company_logo", "project_mark",
+                    "context", "output_targets", "copy", "style", "font", "company_logo", "project_mark",
                     "ip_combination", "ip_usage", "shot_list", "output_spec",
                     "coherence", "generation_confirmation",
                 )
@@ -52,7 +53,7 @@ class PipelineTests(unittest.TestCase):
             "copy": {"title": "Demo Brand", "subtitle": "Local pipeline"},
             "style": {"foreground": "#111111"},
             "fonts": {"heading": str(self._font()), "body": str(self._font())},
-            "assets": assets or {},
+            "assets": {"company_logo": "default", **(assets or {})},
             "outputs": {},
         }
         runtime = root / ".brandloom"
@@ -247,6 +248,24 @@ class PipelineTests(unittest.TestCase):
             self.assertEqual(invalidated["state"], "FONT_PENDING")
             self.assertNotIn("font", invalidated["confirmed"])
 
+    def test_state_confirm_records_platform_and_size_before_copy(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            brandloom_cli.main(["init", "--workspace", str(root)])
+            for state in ("CONTEXT_ANALYSIS", "CONTEXT_CONFIRM_PENDING"):
+                self.assertEqual(brandloom_cli.main(["state-confirm", "--workspace", str(root), "--state", state]), 0)
+            self.assertEqual(brandloom_cli.main([
+                "state-confirm", "--workspace", str(root), "--key", "context", "--value", "true",
+                "--state", "OUTPUT_TARGET_PENDING",
+            ]), 0)
+            self.assertEqual(brandloom_cli.main([
+                "state-confirm", "--workspace", str(root), "--key", "output_targets", "--value", "true",
+                "--state", "OUTPUT_SPEC_PENDING",
+            ]), 0)
+            payload = json.loads((root / ".brandloom" / "qa-state.json").read_text(encoding="utf-8"))
+            self.assertEqual(payload["state"], "OUTPUT_SPEC_PENDING")
+            self.assertTrue(payload["confirmed"]["output_targets"])
+
     def test_public_cli_has_no_test_fixture_gate_bypass(self) -> None:
         for argv in (
             ["compose", "--workspace", ".", "--type", "logo-card", "--base", "base.png", "--test-fixture"],
@@ -255,7 +274,7 @@ class PipelineTests(unittest.TestCase):
             with self.subTest(argv=argv), self.assertRaises(SystemExit):
                 brandloom_cli._parser().parse_args(argv)
 
-    def test_cover_cannot_compose_before_logo_acceptance(self) -> None:
+    def test_legacy_cover_rejects_generation_without_accepted_square_review(self) -> None:
         with TemporaryDirectory() as directory:
             root = Path(directory)
             brandloom_cli.main(["init", "--workspace", str(root)])
@@ -269,13 +288,15 @@ class PipelineTests(unittest.TestCase):
                     "--save-confirmed", "--make-default",
                 ])
             self._write_ready_brief(root)
+            (root / ".brandloom" / "qa-state.json").write_text(json.dumps(self._ready_state()), encoding="utf-8")
             cover = self._asset(root, "cover.png", (1774, 887), (255, 255, 255, 255))
-            with self.assertRaises(ValueError):
+            with self.assertRaisesRegex(ValueError, "requires an accepted logo-card"):
                 brandloom_cli.main([
                     "compose", "--workspace", str(root), "--type", "cover", "--base", str(cover),
                 ])
+            self.assertFalse((root / ".brandloom" / "outputs" / "demo").exists())
 
-    def test_cover_rejects_accepted_logo_bound_to_another_brief_slug(self) -> None:
+    def test_cover_rejects_foreign_accepted_logo_before_state_transition(self) -> None:
         with TemporaryDirectory() as directory:
             root = Path(directory)
             brandloom_cli.main(["init", "--workspace", str(root)])
@@ -294,16 +315,18 @@ class PipelineTests(unittest.TestCase):
             brandloom_cli.main(["validate", "--workspace", str(root), "--type", "logo-card"])
             brandloom_cli.main(["deliver", "--workspace", str(root), "--type", "logo-card", "--reviewed"])
 
-            # Keep the accepted artifact and brief, but tamper only with the
-            # persisted session identity.  A stale session slug must not bind
-            # an accepted logo to the next composition.
+            # Keep the accepted artifact and session, but bind the evidence to
+            # another slug. The compose gate must reject it before advancing.
             state_path = root / ".brandloom" / "qa-state.json"
             state_payload = json.loads(state_path.read_text())
-            state_payload["project_slug"] = "other"
+            state_payload["state"] = "GENERATION_READY"
+            state_payload["accepted_logo"]["slug"] = "other"
             state_path.write_text(json.dumps(state_payload), encoding="utf-8")
             cover_base = self._asset(root, "cover-base.png", (1774, 887), (235, 235, 235, 255))
-            with self.assertRaises(ValueError):
-                brandloom_cli.main(["compose", "--workspace", str(root), "--type", "cover", "--base", str(cover_base)])
+            with patch.object(brandloom_cli, "advance", wraps=brandloom_cli.advance) as advance:
+                with self.assertRaises(ValueError):
+                    brandloom_cli.main(["compose", "--workspace", str(root), "--type", "cover", "--base", str(cover_base)])
+                advance.assert_not_called()
 
     def test_cover_rejects_accepted_logo_when_current_resolved_logo_hash_changes(self) -> None:
         with TemporaryDirectory() as directory:
@@ -367,6 +390,32 @@ class PipelineTests(unittest.TestCase):
             cover_base = self._asset(root, "cover-base.png", (1774, 887), (235, 235, 235, 255))
             with self.assertRaises(ValueError):
                 brandloom_cli.main(["compose", "--workspace", str(root), "--type", "cover", "--base", str(cover_base)])
+
+    def test_cover_allows_copy_only_edit_without_reaccepting_logo(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            brandloom_cli.main(["init", "--workspace", str(root)])
+            for source, category in (
+                (self._asset(root, "logo.png", (40, 20), (1, 2, 3, 255)), "company-logo"),
+                (self._asset(root, "mark.png", (20, 20), (4, 5, 6, 255)), "project-mark"),
+            ):
+                brandloom_cli.main([
+                    "asset-add", "--workspace", str(root), "--source", str(source),
+                    "--category", category, "--scope", "project", "--rights", "user_authorized",
+                    "--save-confirmed", "--make-default",
+                ])
+            self._write_ready_brief(root, slug="demo")
+            logo_base = self._asset(root, "logo-base.png", (1254, 1254), (245, 245, 245, 255))
+            self.assertEqual(brandloom_cli.main(["compose", "--workspace", str(root), "--type", "logo-card", "--base", str(logo_base)]), 0)
+            self.assertEqual(brandloom_cli.main(["validate", "--workspace", str(root), "--type", "logo-card"]), 0)
+            self.assertEqual(brandloom_cli.main(["deliver", "--workspace", str(root), "--type", "logo-card", "--reviewed"]), 0)
+
+            brief_path = root / ".brandloom" / "brand-brief.json"
+            brief_payload = json.loads(brief_path.read_text())
+            brief_payload["copy"]["subtitle"] = "A clearer cover"
+            brief_path.write_text(json.dumps(brief_payload), encoding="utf-8")
+            cover_base = self._asset(root, "cover-base.png", (1774, 887), (235, 235, 235, 255))
+            self.assertEqual(brandloom_cli.main(["compose", "--workspace", str(root), "--type", "cover", "--base", str(cover_base)]), 0)
 
     def test_compose_rejects_unsafe_project_slug_without_escape(self) -> None:
         with TemporaryDirectory() as directory:

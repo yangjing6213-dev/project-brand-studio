@@ -25,7 +25,9 @@ def assert_generation_backend(session: QASession) -> None:
 TRANSITIONS: dict[QAState, frozenset[QAState]] = {
     QAState.INTAKE: frozenset({QAState.CONTEXT_ANALYSIS, QAState.CANCELLED}),
     QAState.CONTEXT_ANALYSIS: frozenset({QAState.CONTEXT_CONFIRM_PENDING, QAState.CANCELLED}),
-    QAState.CONTEXT_CONFIRM_PENDING: frozenset({QAState.COPY_DIRECTION_PENDING, QAState.CANCELLED}),
+    QAState.CONTEXT_CONFIRM_PENDING: frozenset({QAState.OUTPUT_TARGET_PENDING, QAState.CANCELLED}),
+    QAState.OUTPUT_TARGET_PENDING: frozenset({QAState.OUTPUT_SPEC_PENDING, QAState.CANCELLED}),
+    QAState.OUTPUT_SPEC_PENDING: frozenset({QAState.COPY_DIRECTION_PENDING, QAState.CANCELLED}),
     QAState.COPY_DIRECTION_PENDING: frozenset({QAState.STYLE_PENDING, QAState.CANCELLED}),
     QAState.STYLE_PENDING: frozenset({QAState.FONT_PENDING, QAState.CANCELLED}),
     QAState.FONT_PENDING: frozenset({QAState.COMPANY_LOGO_PENDING, QAState.CANCELLED}),
@@ -37,11 +39,10 @@ TRANSITIONS: dict[QAState, frozenset[QAState]] = {
     QAState.CUSTOM_IP_DRAFT_PENDING: frozenset({QAState.RIGHTS_CONFIRM_PENDING, QAState.CANCELLED}),
     QAState.RIGHTS_CONFIRM_PENDING: frozenset({QAState.IP_USAGE_PENDING, QAState.CANCELLED}),
     QAState.IP_USAGE_PENDING: frozenset({QAState.SHOT_LIST_PENDING, QAState.CANCELLED}),
-    QAState.SHOT_LIST_PENDING: frozenset({QAState.OUTPUT_SPEC_PENDING, QAState.CANCELLED}),
-    QAState.OUTPUT_SPEC_PENDING: frozenset({QAState.COHERENCE_REVIEW_PENDING, QAState.CANCELLED}),
+    QAState.SHOT_LIST_PENDING: frozenset({QAState.COHERENCE_REVIEW_PENDING, QAState.CANCELLED}),
     QAState.COHERENCE_REVIEW_PENDING: frozenset({QAState.GENERATION_CONFIRM_PENDING, QAState.CANCELLED}),
     QAState.GENERATION_CONFIRM_PENDING: frozenset({QAState.GENERATION_READY, QAState.CANCELLED}),
-    QAState.GENERATION_READY: frozenset({QAState.GENERATE_LOGO_BASE, QAState.CANCELLED}),
+    QAState.GENERATION_READY: frozenset({QAState.GENERATE_LOGO_BASE, QAState.GENERATE_COVER_BASE, QAState.CANCELLED}),
     QAState.GENERATE_LOGO_BASE: frozenset({QAState.COMPOSE_LOGO_CARD, QAState.CANCELLED}),
     QAState.COMPOSE_LOGO_CARD: frozenset({QAState.INTERNAL_LOGO_QA, QAState.CANCELLED}),
     QAState.INTERNAL_LOGO_QA: frozenset({QAState.LOGO_USER_REVIEW, QAState.CANCELLED}),
@@ -49,14 +50,16 @@ TRANSITIONS: dict[QAState, frozenset[QAState]] = {
     QAState.GENERATE_COVER_BASE: frozenset({QAState.COMPOSE_COVER, QAState.CANCELLED}),
     QAState.COMPOSE_COVER: frozenset({QAState.INTERNAL_COVER_QA, QAState.CANCELLED}),
     QAState.INTERNAL_COVER_QA: frozenset({QAState.USER_REVIEW, QAState.CANCELLED}),
-    QAState.USER_REVIEW: frozenset({QAState.DELIVERED, QAState.CANCELLED}),
+    QAState.USER_REVIEW: frozenset({QAState.GENERATION_READY, QAState.DELIVERED, QAState.CANCELLED}),
     QAState.DELIVERED: frozenset(),
     QAState.CANCELLED: frozenset(),
 }
 
 
 INVALIDATION_RULES = {
-    "context": (QAState.COPY_DIRECTION_PENDING, ("copy", "style", "font", "company_logo", "project_mark", "ip_cast", "ip_combination", "custom_ip_reference", "custom_ip_draft", "rights", "ip_usage", "shot_list", "output_spec", "coherence", "generation_confirmation")),
+    "context": (QAState.OUTPUT_TARGET_PENDING, ("output_targets", "output_spec", "copy", "style", "font", "company_logo", "project_mark", "ip_cast", "ip_combination", "custom_ip_reference", "custom_ip_draft", "rights", "ip_usage", "shot_list", "coherence", "generation_confirmation")),
+    "output_targets": (QAState.OUTPUT_TARGET_PENDING, ("output_targets", "output_spec", "copy", "shot_list", "coherence", "generation_confirmation")),
+    "output_spec": (QAState.OUTPUT_SPEC_PENDING, ("output_spec", "shot_list", "coherence", "generation_confirmation")),
     "copy": (QAState.COPY_DIRECTION_PENDING, ("copy", "shot_list", "coherence", "generation_confirmation")),
     "style": (QAState.FONT_PENDING, ("font", "shot_list", "output_spec", "coherence", "generation_confirmation")),
     "font": (QAState.FONT_PENDING, ("font", "shot_list", "coherence", "generation_confirmation")),
@@ -68,14 +71,15 @@ INVALIDATION_RULES = {
     "custom_ip_draft": (QAState.CUSTOM_IP_DRAFT_PENDING, ("custom_ip_draft", "rights", "ip_usage", "shot_list", "coherence", "generation_confirmation")),
     "rights": (QAState.RIGHTS_CONFIRM_PENDING, ("rights", "ip_usage", "shot_list", "coherence", "generation_confirmation")),
     "ip_usage": (QAState.IP_USAGE_PENDING, ("ip_usage", "shot_list", "coherence", "generation_confirmation")),
-    "output_spec": (QAState.OUTPUT_SPEC_PENDING, ("output_spec", "coherence", "generation_confirmation")),
     "shot_list": (QAState.SHOT_LIST_PENDING, ("shot_list", "coherence", "generation_confirmation")),
 }
 
-_REQUIRED = ("context", "copy", "style", "font", "company_logo", "project_mark", "ip_cast", "ip_combination", "ip_usage", "shot_list", "output_spec", "coherence", "generation_confirmation")
+_REQUIRED = ("context", "output_targets", "output_spec", "copy", "style", "font", "company_logo", "project_mark", "ip_cast", "ip_combination", "ip_usage", "shot_list", "coherence", "generation_confirmation")
 
 PENDING_CONFIRMATION_KEYS: dict[QAState, str] = {
     QAState.CONTEXT_CONFIRM_PENDING: "context",
+    QAState.OUTPUT_TARGET_PENDING: "output_targets",
+    QAState.OUTPUT_SPEC_PENDING: "output_spec",
     QAState.COPY_DIRECTION_PENDING: "copy",
     QAState.STYLE_PENDING: "style",
     QAState.FONT_PENDING: "font",
@@ -88,7 +92,6 @@ PENDING_CONFIRMATION_KEYS: dict[QAState, str] = {
     QAState.RIGHTS_CONFIRM_PENDING: "rights",
     QAState.IP_USAGE_PENDING: "ip_usage",
     QAState.SHOT_LIST_PENDING: "shot_list",
-    QAState.OUTPUT_SPEC_PENDING: "output_spec",
     QAState.COHERENCE_REVIEW_PENDING: "coherence",
     QAState.GENERATION_CONFIRM_PENDING: "generation_confirmation",
 }
@@ -159,7 +162,14 @@ def invalidate_from(session: QASession, key: str) -> QASession:
         raise ValueError(f"unknown QA key: {key}") from exc
     confirmed = {name: value for name, value in session.confirmed.items() if name not in keys}
     invalidated = tuple(dict.fromkeys((*session.invalidated, *keys)))
-    return replace(session, state=target, confirmed=confirmed, invalidated=invalidated, accepted_logo=None, logo_review_candidate=None)
+    # A copy-only edit does not change the already accepted square artwork.
+    # Preserve that evidence so a cover can be regenerated without forcing a
+    # second square review. Every other upstream change still clears it.
+    accepted_logo = session.accepted_logo if key == "copy" else None
+    return replace(session, state=target, confirmed=confirmed, invalidated=invalidated,
+                   accepted_logo=accepted_logo, logo_review_candidate=None,
+                   active_output_target=None, delivered_targets=(), confirmed_brief_sha256=None,
+                   generation_request=None)
 
 
 def assert_generation_ready(session: QASession) -> None:

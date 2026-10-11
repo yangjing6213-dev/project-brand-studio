@@ -6,6 +6,7 @@ class QAState(StrEnum):
     INTAKE = "INTAKE"
     CONTEXT_ANALYSIS = "CONTEXT_ANALYSIS"
     CONTEXT_CONFIRM_PENDING = "CONTEXT_CONFIRM_PENDING"
+    OUTPUT_TARGET_PENDING = "OUTPUT_TARGET_PENDING"
     COPY_DIRECTION_PENDING = "COPY_DIRECTION_PENDING"
     STYLE_PENDING = "STYLE_PENDING"
     FONT_PENDING = "FONT_PENDING"
@@ -47,6 +48,7 @@ class AssetCategory(StrEnum):
     COMPANY_LOGO = "company-logo"
     IP_CHARACTER = "ip-character"
     STYLE_REFERENCE = "style-reference"
+    PERSON_REFERENCE = "person-reference"
     UI_SCREENSHOT = "ui-screenshot"
 
 
@@ -78,6 +80,10 @@ class QASession:
     logo_review_candidate: dict[str, object] | None = None
     generation_backend: str = "host_builtin_image_tool"
     updated_at: str = ""
+    active_output_target: str | None = None
+    delivered_targets: tuple[str, ...] = ()
+    confirmed_brief_sha256: str | None = None
+    generation_request: dict[str, str] | None = None
 
 
 @dataclass(frozen=True)

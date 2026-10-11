@@ -24,6 +24,7 @@ _GENERATION_CATEGORIES = {
     AssetCategory.COMPANY_LOGO,
     AssetCategory.PROJECT_MARK,
     AssetCategory.IP_CHARACTER,
+    AssetCategory.PERSON_REFERENCE,
 }
 _COMPANY_LOGO_FORBIDDEN = (
     "redraw", "distort", "change_letterforms", "change_geometry", "use_as_training_reference"

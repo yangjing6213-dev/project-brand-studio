@@ -11,6 +11,7 @@ import re
 from pathlib import Path
 import sys
 from typing import Any
+import uuid
 
 from PIL import ImageFont
 
@@ -26,12 +27,14 @@ try:
     from .brandloom_core.manifests import build_generation_manifest, write_manifest
     from .brandloom_core.models import AssetCategory, AssetScope, BrandBrief, QAState, QASession, RightsStatus, TaskMode
     from .brandloom_core.paths import project_output_dir, project_root, safe_project_slug
-    from .brandloom_core.renderer import render_brand_asset, rendered_copy_values
+    from .brandloom_core.renderer import render_brand_asset, rendered_copy_values, validate_composition_layout
     from .brandloom_core.renderer import BrandIntegrityError
     from .brandloom_core.treatments import canonicalize_logo_treatment, operation_for_treatment
     from .brandloom_core.state_machine import GENERATION_BACKEND, advance, assert_generation_backend, assert_generation_ready, confirm, invalidate_from
     from .brandloom_core.prompt_builder import build_host_request, validate_generated_path
     from .brandloom_core.validation import validate_output, validate_accepted_logo_evidence
+    from .brandloom_core.platform_outputs import resolve_output_target
+    from .brandloom_core.platform_templates import build_cover_template, write_cover_template
 except ImportError:  # pragma: no cover - supports direct script execution
     from brandloom.scripts.brandloom_core.asset_library import list_assets, register_asset, resolve_asset
     from brandloom.scripts.brandloom_core.fonts import FontNotFoundError, load_font_profiles, resolve_font
@@ -39,12 +42,14 @@ except ImportError:  # pragma: no cover - supports direct script execution
     from brandloom.scripts.brandloom_core.manifests import build_generation_manifest, write_manifest
     from brandloom.scripts.brandloom_core.models import AssetCategory, AssetScope, BrandBrief, QAState, QASession, RightsStatus, TaskMode
     from brandloom.scripts.brandloom_core.paths import project_output_dir, project_root, safe_project_slug
-    from brandloom.scripts.brandloom_core.renderer import render_brand_asset, rendered_copy_values
+    from brandloom.scripts.brandloom_core.renderer import render_brand_asset, rendered_copy_values, validate_composition_layout
     from brandloom.scripts.brandloom_core.renderer import BrandIntegrityError
     from brandloom.scripts.brandloom_core.treatments import canonicalize_logo_treatment, operation_for_treatment
     from brandloom.scripts.brandloom_core.state_machine import GENERATION_BACKEND, advance, assert_generation_backend, assert_generation_ready, confirm, invalidate_from
     from brandloom.scripts.brandloom_core.prompt_builder import build_host_request, validate_generated_path
     from brandloom.scripts.brandloom_core.validation import validate_output, validate_accepted_logo_evidence
+    from brandloom.scripts.brandloom_core.platform_outputs import resolve_output_target
+    from brandloom.scripts.brandloom_core.platform_templates import build_cover_template, write_cover_template
 
 
 def _json_write(path: Path, data: Any) -> None:
@@ -103,7 +108,9 @@ def _state_show(args: argparse.Namespace) -> int:
 
 
 def _state_confirm(args: argparse.Namespace) -> int:
-    path = project_root(_workspace(args.workspace)) / "qa-state.json"
+    workspace = _workspace(args.workspace)
+    root = project_root(workspace)
+    path = root / "qa-state.json"
     if not path.is_file() or not any((args.key, args.invalidate, args.state)):
         return 2
     if args.key and args.invalidate:
@@ -118,6 +125,11 @@ def _state_confirm(args: argparse.Namespace) -> int:
             except json.JSONDecodeError:
                 value = args.value
             session = confirm(session, args.key, value)
+            if args.key == "generation_confirmation" and value is True:
+                brief_path = root / "brand-brief.json"
+                if not brief_path.is_file():
+                    return 2
+                session = replace(session, confirmed_brief_sha256=_sha256_path(brief_path), generation_request=None)
         if args.invalidate:
             session = invalidate_from(session, args.invalidate)
         if args.state:
@@ -146,6 +158,13 @@ def _load_session(workspace: Path) -> QASession:
         accepted_logo = dict(accepted_raw)
     candidate_raw = payload.get("logo_review_candidate")
     candidate = dict(candidate_raw) if isinstance(candidate_raw, dict) and validate_accepted_logo_evidence(candidate_raw) else None
+    request_raw = payload.get("generation_request")
+    generation_request = (
+        {key: request_raw[key] for key in ("request_id", "target_id", "brief_sha256", "request_sha256")}
+        if isinstance(request_raw, dict)
+        and all(isinstance(request_raw.get(key), str) and request_raw[key] for key in ("request_id", "target_id", "brief_sha256", "request_sha256"))
+        else None
+    )
     return QASession(
         schema_version=str(payload.get("schema_version", "1.0")),
         session_id=str(payload.get("session_id", "cli")),
@@ -159,7 +178,79 @@ def _load_session(workspace: Path) -> QASession:
         accepted_logo=accepted_logo,
         logo_review_candidate=candidate,
         updated_at=str(payload.get("updated_at", "")),
+        active_output_target=str(payload["active_output_target"]) if isinstance(payload.get("active_output_target"), str) else None,
+        delivered_targets=tuple(item for item in payload.get("delivered_targets", ()) if isinstance(item, str)) if isinstance(payload.get("delivered_targets", ()), (list, tuple)) else (),
+        confirmed_brief_sha256=str(payload["confirmed_brief_sha256"]) if isinstance(payload.get("confirmed_brief_sha256"), str) else None,
+        generation_request=generation_request,
     )
+
+
+def _target_record(brief: BrandBrief, target_id: str) -> dict[str, object]:
+    values = brief.outputs.get("targets")
+    if isinstance(values, dict):
+        raw = values.get(target_id)
+        if not isinstance(raw, dict):
+            raise ValueError(f"confirmed output target is missing: {target_id}")
+        record = dict(raw)
+        record.setdefault("id", target_id)
+    elif isinstance(values, list):
+        matches = [item for item in values if isinstance(item, dict) and item.get("id") == target_id]
+        if len(matches) != 1:
+            raise ValueError(f"output target must be listed exactly once: {target_id}")
+        record = dict(matches[0])
+    else:
+        raise ValueError("brand-brief.outputs.targets must list the user-confirmed output targets")
+
+    raw_dimensions = record.get("dimensions")
+    if target_id == "custom":
+        spec = resolve_output_target(target_id, raw_dimensions)
+    else:
+        spec = resolve_output_target(target_id)
+        if raw_dimensions is not None and tuple(raw_dimensions) != tuple(spec["dimensions"]):
+            raise ValueError(f"confirmed dimensions for {target_id} do not match its selected platform specification")
+    record["dimensions"] = list(spec["dimensions"])
+    for key in ("platform", "purpose", "ratio", "spec_status", "minimum_dimensions", "safe_area"):
+        record.setdefault(key, spec.get(key))
+    language = record.get("language")
+    if not isinstance(language, str) or not language.strip() or not language.lower().startswith(("zh", "en")):
+        raise ValueError(f"each output target requires a confirmed Chinese or English language: {target_id}")
+    if not isinstance(record.get("copy", {}), dict):
+        raise ValueError(f"output target copy must be a JSON object: {target_id}")
+    if record.get("scene_concept") is not None and not isinstance(record.get("scene_concept"), str):
+        raise ValueError(f"scene_concept must be confirmed text: {target_id}")
+    steps = record.get("workflow_steps")
+    if steps is not None and not isinstance(steps, list):
+        raise ValueError(f"workflow_steps must be a list for {target_id}")
+    if record.get("workflow_mode", "steps") not in {"steps", "benefits", "none"}:
+        raise ValueError(f"workflow_mode must be steps, benefits, or none: {target_id}")
+    return record
+
+
+def _targeted_brief(brief: BrandBrief, target: dict[str, object]) -> BrandBrief:
+    copy = dict(brief.copy)
+    target_copy = target.get("copy")
+    if isinstance(target_copy, dict):
+        copy.update(target_copy)
+    copy["language"] = target["language"]
+    style = dict(brief.style)
+    if isinstance(target.get("scene_concept"), str) and target["scene_concept"].strip():
+        style["scene_concept"] = target["scene_concept"].strip()
+    return replace(brief, copy=copy, style=style)
+
+
+def _confirmed_target_ids(brief: BrandBrief) -> tuple[str, ...]:
+    values = brief.outputs.get("targets")
+    if isinstance(values, dict):
+        target_ids = tuple(str(key) for key in values)
+    elif isinstance(values, list):
+        target_ids = tuple(str(item.get("id", "")) for item in values if isinstance(item, dict))
+    else:
+        return ()
+    if not target_ids or any(not item for item in target_ids) or len(set(target_ids)) != len(target_ids):
+        raise ValueError("brand-brief.outputs.targets must contain unique target IDs")
+    for target_id in target_ids:
+        _target_record(brief, target_id)
+    return target_ids
 
 
 def _write_session(path: Path, session: QASession) -> None:
@@ -191,12 +282,13 @@ def _manifest_documents(directory: Path) -> list[tuple[Path, dict[str, object]]]
     return documents
 
 
-def _latest_manifest(directory: Path, output_type: str) -> tuple[Path, dict[str, object]]:
+def _latest_manifest(directory: Path, output_type: str, target_id: str | None = None) -> tuple[Path, dict[str, object]]:
     aliases = {output_type, output_type.replace("-", "_"), output_type.replace("_", "-")}
     for path, payload in reversed(_manifest_documents(directory)):
-        if str(payload.get("output_type", "")) in aliases:
+        if str(payload.get("output_type", "")) in aliases and (target_id is None or payload.get("target_id") == target_id):
             return path, payload
-    raise FileNotFoundError(f"generation manifest missing for {output_type}")
+    label = f"{output_type}/{target_id}" if target_id else output_type
+    raise FileNotFoundError(f"generation manifest missing for {label}")
 
 
 def _manifest_output_path(manifest_path: Path, payload: dict[str, object]) -> Path:
@@ -209,6 +301,67 @@ def _manifest_output_path(manifest_path: Path, payload: dict[str, object]) -> Pa
 
 def _sha256_path(path: Path) -> str:
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def _request_sha256(request: dict[str, object]) -> str:
+    canonical = json.dumps(request, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _brief_upstream_sha256(path: Path) -> str:
+    """Hash all brief decisions except copy so cover copy edits stay scoped."""
+    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("brand brief must be a JSON object")
+    upstream = dict(payload)
+    upstream.pop("copy", None)
+    canonical = json.dumps(upstream, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _cover_copy_edit_compatible(
+    *,
+    evidence: dict[str, object],
+    manifest: dict[str, object],
+    brief: BrandBrief,
+    brief_path: Path,
+    session: QASession,
+    skill_root: Path,
+) -> bool:
+    """Allow only an explicitly tracked cover-copy edit to reuse a square."""
+    if session.state is not QAState.GENERATE_COVER_BASE or manifest.get("output_type") != "logo-card":
+        return False
+    recorded_upstream = evidence.get("brief_upstream_sha256")
+    if not isinstance(recorded_upstream, str) or not recorded_upstream:
+        return False
+    try:
+        if recorded_upstream != _brief_upstream_sha256(brief_path):
+            return False
+        current_request = build_host_request(
+            brief, "logo_card", expected=(1254, 1254), skill_root=skill_root,
+            workspace=brief_path.parent.parent,
+        )
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        return False
+    recorded_request = manifest.get("host_request")
+    if not isinstance(recorded_request, dict):
+        return False
+    comparable = ("schema_version", "backend", "output_type", "aspect_ratio", "dimensions", "prompt", "reference_assets")
+    return all(current_request.get(key) == recorded_request.get(key) for key in comparable)
+
+
+def _brief_with_manifest_copy(brief: BrandBrief, manifest: dict[str, object]) -> dict[str, object]:
+    """Build a validation-only brief using the copy rendered in the square."""
+    replacement = manifest.get("rendered_copy")
+    return {
+        "schema_version": brief.schema_version,
+        "project": dict(brief.project),
+        "copy": dict(replacement) if isinstance(replacement, dict) else dict(brief.copy),
+        "style": dict(brief.style),
+        "fonts": dict(brief.fonts),
+        "assets": dict(brief.assets),
+        "outputs": dict(brief.outputs),
+    }
 
 
 def _manifest_company_logo_hash(payload: dict[str, object]) -> str | None:
@@ -240,7 +393,9 @@ def _assert_accepted_logo_binding(
     session: QASession,
     logo,
     logo_treatment: str,
-) -> None:
+    brief: BrandBrief,
+    skill_root: Path,
+) -> bool:
     """Bind cover composition to the current workspace and logo decision."""
     if session.project_slug != slug or evidence.get("slug") != slug:
         raise ValueError("accepted logo evidence is bound to a different project slug")
@@ -260,7 +415,18 @@ def _assert_accepted_logo_binding(
     recorded_brief = Path(str(brief_entry.get("path", "")))
     recorded_brief = recorded_brief.resolve() if recorded_brief.is_absolute() else (resolved_manifest.parent / recorded_brief).resolve()
     if recorded_brief != brief_path.resolve() or brief_entry.get("sha256") != _sha256_path(brief_path):
-        raise ValueError("accepted logo manifest is bound to a different brief")
+        if not _cover_copy_edit_compatible(
+            evidence=evidence,
+            manifest=manifest,
+            brief=brief,
+            brief_path=brief_path,
+            session=session,
+            skill_root=skill_root,
+        ):
+            raise ValueError("accepted logo manifest is bound to a different brief")
+        copy_only_edit = True
+    else:
+        copy_only_edit = False
     manifest_slug = manifest.get("project_slug")
     if manifest_slug is not None and manifest_slug != slug:
         raise ValueError("accepted logo manifest is bound to a different project slug")
@@ -286,15 +452,18 @@ def _assert_accepted_logo_binding(
             host_path = Path(str(accepted_host.get("path", ""))).resolve()
             if host_path != accepted_output or accepted_host.get("sha256") != evidence.get("sha256"):
                 raise ValueError("accepted logo host evidence does not match the reviewed output")
+    return copy_only_edit
 
 
-def _resolve_font_paths(brief: BrandBrief) -> dict[str, Path]:
+def _resolve_font_paths(brief: BrandBrief, *, workflow_required: bool = False) -> dict[str, Path]:
     rendered = rendered_copy_values(brief)
     required: list[str] = []
     if rendered.get("title"):
         required.append("heading")
     if any(rendered.get(name) for name in ("subtitle", "value_line", "features")):
         required.append("body")
+    if workflow_required:
+        required.extend(role for role in ("heading", "body") if role not in required)
     roots_value = brief.fonts.get("project_paths", ())
     roots = tuple(Path(value).expanduser() for value in roots_value) if isinstance(roots_value, (list, tuple)) else ()
     profiles = load_font_profiles()
@@ -344,38 +513,29 @@ def _post_compose_session(session: QASession, output_type: str) -> QASession:
     return advance(session, QAState.INTERNAL_COVER_QA)
 
 
-def _compose(args: argparse.Namespace) -> int:
-    workspace = _workspace(args.workspace)
-    session = _load_session(workspace)
-    assert_generation_backend(session)
-    if args.type == "logo-card":
-        assert_generation_ready(session)
-    elif session.state is not QAState.GENERATE_COVER_BASE:
-        raise ValueError("cover composition requires an accepted logo-card")
-    brief = _load_brief(workspace)
-    slug = safe_project_slug(brief.project.get("slug", brief.project.get("name", "project")))
-    output_dir = project_output_dir(workspace, slug)
-    root = project_root(workspace)
-    base_path = Path(args.base)
-    if not base_path.is_absolute():
-        base_path = (workspace / base_path).resolve()
-    prompt_type = "logo_card" if args.type == "logo-card" else "cover"
-    dimensions = validate_generated_path(base_path, expected=prompt_type)
-    skill_root = Path(__file__).resolve().parents[1]
-    accepted_logo_path = None
-    accepted_logo_evidence = None
-    accepted_manifest = None
-    accepted_manifest_path = None
-    template = skill_root / ("templates/logo-card-1x1.json" if args.type == "logo-card" else "templates/cover-2x1.json")
+def _resolve_company_logo(brief: BrandBrief, workspace: Path, skill_root: Path):
+    if "company_logo" not in brief.assets:
+        raise ValueError("company_logo selection is unresolved")
     explicit_logo = brief.assets.get("company_logo")
+    logo_absent = explicit_logo is None or explicit_logo is False or (
+        isinstance(explicit_logo, str) and explicit_logo.strip().casefold() == "none"
+    )
+    if logo_absent:
+        return None
+    if not isinstance(explicit_logo, str) or not explicit_logo.strip():
+        raise ValueError("company_logo must be an asset ID or explicit none")
     logo = resolve_asset(
         AssetCategory.COMPANY_LOGO,
         workspace=workspace,
-        explicit_asset_id=str(explicit_logo) if isinstance(explicit_logo, str) and explicit_logo else None,
+        explicit_asset_id=None if explicit_logo.strip().casefold() == "default" else explicit_logo.strip(),
         skill_root=skill_root,
     )
     if logo is None:
-        raise ValueError("an authorized company-logo is required")
+        raise ValueError("the selected company-logo is not available")
+    return logo
+
+
+def _resolve_project_mark(brief: BrandBrief, workspace: Path, skill_root: Path):
     mark_value = brief.assets.get("project_mark")
     mark_absent = "project_mark" in brief.assets and (
         mark_value is None
@@ -384,15 +544,145 @@ def _compose(args: argparse.Namespace) -> int:
     )
     if "project_mark" in brief.assets and not mark_absent and not isinstance(mark_value, str):
         raise ValueError("project_mark must be a valid asset ID or explicit none")
-    if "project_mark" not in brief.assets and resolve_asset(AssetCategory.PROJECT_MARK, workspace=workspace, skill_root=skill_root) is None:
-        raise ValueError("project_mark selection is unresolved")
-    explicit_mark = mark_value
-    mark = None if mark_absent else resolve_asset(
+    if mark_absent:
+        return None
+    mark = resolve_asset(
         AssetCategory.PROJECT_MARK,
         workspace=workspace,
-        explicit_asset_id=str(explicit_mark) if isinstance(explicit_mark, str) and explicit_mark else None,
+        explicit_asset_id=str(mark_value) if isinstance(mark_value, str) and mark_value else None,
         skill_root=skill_root,
     )
+    if mark is None:
+        raise ValueError("project_mark selection is unresolved")
+    return mark
+
+
+def _assert_confirmed_brief(session: QASession, workspace: Path) -> None:
+    brief_path = project_root(workspace) / "brand-brief.json"
+    if session.confirmed_brief_sha256 != _sha256_path(brief_path):
+        raise ValueError("brand brief changed after QA confirmation; reconfirm the choices before continuing")
+
+
+def _request(args: argparse.Namespace) -> int:
+    workspace = _workspace(args.workspace)
+    session = _load_session(workspace)
+    assert_generation_ready(session)
+    _assert_confirmed_brief(session, workspace)
+    if session.active_output_target is not None:
+        raise ValueError("another platform output is still awaiting review")
+    brief = _load_brief(workspace)
+    target_id = args.target_id
+    targets = _confirmed_target_ids(brief)
+    if target_id not in targets:
+        raise ValueError(f"output target is not in the confirmed target list: {target_id}")
+    if target_id in session.delivered_targets:
+        raise ValueError(f"output target has already been delivered in this session: {target_id}")
+    target = _target_record(brief, target_id)
+    skill_root = Path(__file__).resolve().parents[1]
+    _resolve_company_logo(brief, workspace, skill_root)
+    _resolve_project_mark(brief, workspace, skill_root)
+    targeted_brief = _targeted_brief(brief, target)
+    template = build_cover_template(
+        target,
+        language=str(target["language"]),
+        workflow_steps=target.get("workflow_steps"),
+        style_profile=str(brief.style.get("profile", "")),
+    )
+    font_paths = _resolve_font_paths(targeted_brief, workflow_required=bool(target.get("workflow_steps")))
+    validate_composition_layout(targeted_brief, template, font_paths)
+    request = build_host_request(
+        targeted_brief,
+        "cover",
+        expected=tuple(target["dimensions"]),
+        target_id=target_id,
+        skill_root=skill_root,
+        workspace=workspace,
+    )
+    request_sha256 = _request_sha256(request)
+    request_id = uuid.uuid4().hex
+    request["request_id"] = request_id
+    session = replace(session, generation_request={
+        "request_id": request_id,
+        "target_id": target_id,
+        "brief_sha256": session.confirmed_brief_sha256 or "",
+        "request_sha256": request_sha256,
+    })
+    _write_session(project_root(workspace) / "qa-state.json", session)
+    print(json.dumps(request, ensure_ascii=False, indent=2))
+    return 0
+
+
+def _compose(args: argparse.Namespace) -> int:
+    workspace = _workspace(args.workspace)
+    session = _load_session(workspace)
+    assert_generation_backend(session)
+    brief = _load_brief(workspace)
+    target_id = getattr(args, "target_id", None)
+    if args.type == "cover" and target_id is None and brief.outputs.get("targets"):
+        raise ValueError("platform-cover workflow requires a confirmed platform target")
+    slug = safe_project_slug(brief.project.get("slug", brief.project.get("name", "project")))
+    if args.type == "cover" and target_id is None:
+        if session.project_slug != slug or not validate_accepted_logo_evidence(session.accepted_logo, expected_slug=slug):
+            raise ValueError("legacy cover composition requires an accepted logo-card valid for the current project")
+    if args.type == "logo-card":
+        if target_id is not None:
+            raise ValueError("platform target IDs apply only to cover outputs")
+        assert_generation_ready(session)
+    elif target_id is not None:
+        assert_generation_ready(session)
+        if session.active_output_target is not None:
+            raise ValueError("another platform output is still awaiting review")
+        session = advance(session, QAState.GENERATE_COVER_BASE)
+    elif session.state is QAState.GENERATION_READY:
+        assert_generation_ready(session)
+        if session.active_output_target is not None:
+            raise ValueError("another platform output is still awaiting review")
+        session = advance(session, QAState.GENERATE_COVER_BASE)
+    elif session.state is not QAState.GENERATE_COVER_BASE:
+        raise ValueError("cover composition requires GENERATION_READY or GENERATE_COVER_BASE")
+    if target_id is not None and session.confirmed_brief_sha256 != _sha256_path(project_root(workspace) / "brand-brief.json"):
+        raise ValueError("brand brief changed after QA confirmation; reconfirm the choices before composing")
+    if target_id is not None:
+        pending_request = session.generation_request
+        if (
+            not args.request_id
+            or pending_request is None
+            or pending_request.get("request_id") != args.request_id
+            or pending_request.get("target_id") != target_id
+            or pending_request.get("brief_sha256") != session.confirmed_brief_sha256
+        ):
+            raise ValueError("request preflight ID does not match the current target and confirmed brief")
+    if args.type == "logo-card" and brief.outputs.get("targets"):
+        raise ValueError("square logo-card generation is disabled for the confirmed platform-cover workflow")
+    output_dir = project_output_dir(workspace, slug)
+    root = project_root(workspace)
+    base_path = Path(args.base)
+    if not base_path.is_absolute():
+        base_path = (workspace / base_path).resolve()
+    prompt_type = "logo_card" if args.type == "logo-card" else "cover"
+    platform_target = None
+    render_brief = brief
+    if target_id is not None:
+        platform_target = _target_record(brief, target_id)
+        if target_id not in _confirmed_target_ids(brief):
+            raise ValueError(f"output target is not in the confirmed target list: {target_id}")
+        if target_id in session.delivered_targets:
+            raise ValueError(f"output target has already been delivered in this session: {target_id}")
+        dimensions = tuple(platform_target["dimensions"])
+        base_dimensions = validate_generated_path(base_path, expected=dimensions, allow_same_aspect_resize=True)
+        render_brief = _targeted_brief(brief, platform_target)
+    else:
+        dimensions = validate_generated_path(base_path, expected=prompt_type)
+        base_dimensions = dimensions
+        skill_root = Path(__file__).resolve().parents[1]
+        template = skill_root / ("templates/logo-card-1x1.json" if args.type == "logo-card" else "templates/cover-2x1.json")
+    skill_root = Path(__file__).resolve().parents[1]
+    accepted_logo_path = None
+    accepted_logo_evidence = None
+    accepted_manifest = None
+    accepted_manifest_path = None
+    logo = _resolve_company_logo(brief, workspace, skill_root)
+    mark = _resolve_project_mark(brief, workspace, skill_root)
     try:
         logo_treatment = canonicalize_logo_treatment(brief.assets.get("company_logo_treatment", brief.assets.get("logo_treatment")))
     except ValueError as exc:
@@ -402,12 +692,17 @@ def _compose(args: argparse.Namespace) -> int:
         raise BrandIntegrityError("company logo treatment changed after confirmation")
     if logo_treatment != "default" and confirmed_treatment != logo_treatment:
         raise BrandIntegrityError("company logo treatment requires exact affirmative confirmation")
-    if logo_treatment in getattr(logo.record, "forbidden_operations", ()) or (
-        logo_treatment == "monochrome-black" and operation_for_treatment(logo_treatment) in logo.record.forbidden_operations
+    if logo is None and logo_treatment != "default":
+        raise BrandIntegrityError("company logo treatment cannot be selected when no logo is used")
+    if logo is not None and (
+        logo_treatment in getattr(logo.record, "forbidden_operations", ())
+        or (logo_treatment == "monochrome-black" and operation_for_treatment(logo_treatment) in logo.record.forbidden_operations)
     ):
         raise BrandIntegrityError("selected company logo asset forbids recolor_monochrome")
 
-    if args.type == "cover":
+    if args.type == "cover" and platform_target is None and session.accepted_logo is not None:
+        if logo is None:
+            raise ValueError("legacy cover composition requires the explicitly selected company logo")
         accepted_logo_evidence = session.accepted_logo
         if not validate_accepted_logo_evidence(accepted_logo_evidence, expected_slug=slug):
             raise ValueError("cover composition requires accepted logo evidence for the current project")
@@ -417,7 +712,7 @@ def _compose(args: argparse.Namespace) -> int:
         accepted_manifest = json.loads(accepted_manifest_path.read_text(encoding="utf-8"))
         if not isinstance(accepted_manifest, dict):
             raise ValueError("accepted logo manifest must be a JSON object")
-        _assert_accepted_logo_binding(
+        copy_only_edit = _assert_accepted_logo_binding(
             evidence=accepted_logo_evidence,
             manifest_path=accepted_manifest_path,
             manifest=accepted_manifest,
@@ -428,11 +723,19 @@ def _compose(args: argparse.Namespace) -> int:
             session=session,
             logo=logo,
             logo_treatment=logo_treatment,
+            brief=brief,
+            skill_root=skill_root,
         )
+        logo_validation_brief = _brief_with_manifest_copy(brief, accepted_manifest) if copy_only_edit else brief
+        logo_validation_manifest = accepted_manifest
+        if copy_only_edit:
+            logo_validation_manifest = dict(accepted_manifest)
+            logo_validation_manifest["brief"] = dict(accepted_manifest.get("brief", {}))
+            logo_validation_manifest["brief"]["sha256"] = _sha256_path(root / "brand-brief.json")
         accepted_report = validate_output(
             accepted_logo_path,
-            manifest=accepted_manifest,
-            brief=brief,
+            manifest=logo_validation_manifest,
+            brief=logo_validation_brief,
             asset_hashes={"company_logo": logo.record.sha256},
             output_type="logo_card",
             manual_visual_checks=True,
@@ -444,26 +747,43 @@ def _compose(args: argparse.Namespace) -> int:
             raise ValueError("accepted logo manifest is no longer valid")
 
     host_request = build_host_request(
-        brief,
+        render_brief,
         prompt_type,
         expected=dimensions,
+        target_id=target_id,
         accepted_logo_path=accepted_logo_path,
         accepted_logo_evidence=accepted_logo_evidence,
         skill_root=skill_root,
+        workspace=workspace,
     )
-    asset_paths = {"company_logo": logo.path}
-    used_assets = [_asset_manifest_entry(logo)]
+    if platform_target is not None:
+        pending_request = session.generation_request
+        if pending_request is None or pending_request.get("request_sha256") != _request_sha256(host_request):
+            raise ValueError("request preflight ID no longer matches the approved prompt and reference assets")
+        host_request["request_id"] = args.request_id
+        template = write_cover_template(
+            output_dir,
+            platform_target,
+            language=str(platform_target["language"]),
+            workflow_steps=platform_target.get("workflow_steps"),
+            style_profile=str(brief.style.get("profile", "")),
+        )
+    asset_paths = {"company_logo": logo.path} if logo is not None else {}
+    used_assets = [_asset_manifest_entry(logo)] if logo is not None else []
     if mark is not None:
         asset_paths["project_mark"] = mark.path
         used_assets.append(_asset_manifest_entry(mark))
     for reference in host_request.get("reference_assets", []):
         if isinstance(reference, dict):
             used_assets.append(dict(reference))
-    font_paths = _resolve_font_paths(brief)
-    result = render_brand_asset(template, brief, base_image=base_path, asset_paths=asset_paths,
+    workflow_required = args.type == "cover" and (platform_target is None or bool(platform_target.get("workflow_steps")))
+    font_paths = _resolve_font_paths(render_brief, workflow_required=workflow_required)
+    result = render_brand_asset(template, render_brief, base_image=base_path, asset_paths=asset_paths,
                                 font_paths=font_paths, output_dir=output_dir, logo_treatment=logo_treatment,
                                 confirmed_treatment=confirmed_treatment)
     next_session = _post_compose_session(session, args.type)
+    if platform_target is not None:
+        next_session = replace(next_session, active_output_target=target_id, generation_request=None)
     manifest = build_generation_manifest(
         brief_path=root / "brand-brief.json", assets=used_assets, template_path=template,
         font_paths=font_paths, base_image_path=base_path, output_path=result.output_path,
@@ -475,6 +795,8 @@ def _compose(args: argparse.Namespace) -> int:
         logo_source_hash=result.source_hashes.get("company_logo"),
         logo_operation=operation_for_treatment(result.logo_treatment),
         logo_confirmation=confirmed_treatment,
+        output_target=platform_target,
+        generated_base_dimensions=base_dimensions if platform_target is not None else None,
     )
     write_manifest(_versioned_manifest(output_dir), manifest)
     if args.type == "logo-card":
@@ -499,23 +821,35 @@ def _output_qa_report(args: argparse.Namespace, *, manual_visual_checks: bool):
             raise FileNotFoundError("brand brief missing")
     slug = safe_project_slug(slug)
     directory = project_output_dir(workspace, slug)
-    manifest_path, payload = _latest_manifest(directory, args.type)
+    target_id = getattr(args, "target_id", None)
+    manifest_path, payload = _latest_manifest(directory, args.type, target_id)
     output_path = _manifest_output_path(manifest_path, payload)
     output_type = "logo_card" if args.type == "logo-card" else args.type.replace("-", "_")
-    validate_generated_path(output_path, expected=output_type)
     brief = _load_brief(workspace) if (root / "brand-brief.json").is_file() else None
+    expected_dimensions = None
+    validation_brief = brief
+    if target_id is not None:
+        if not isinstance(brief, BrandBrief):
+            raise ValueError("brand brief is required for platform-target QA")
+        target = _target_record(brief, target_id)
+        expected_dimensions = tuple(target["dimensions"])
+        validation_brief = _targeted_brief(brief, target)
+        if str(payload.get("output_type", "")).replace("-", "_") != "cover":
+            raise ValueError("selected target manifest is not a cover")
+    validate_generated_path(output_path, expected=expected_dimensions or output_type)
     previous_outputs = []
     for previous, previous_payload in _manifest_documents(directory):
         if previous != manifest_path:
             previous_outputs.append(_manifest_output_path(previous, previous_payload))
-    assets = brief.assets if isinstance(brief, BrandBrief) else {}
+    assets = validation_brief.assets if isinstance(validation_brief, BrandBrief) else {}
     logo_ips = assets.get("logo_card_ip", []) if isinstance(assets, dict) else []
     rights = assets.get("custom_ip_rights", []) if isinstance(assets, dict) else []
-    return validate_output(output_path, manifest=payload, brief=brief, output_type=output_type,
+    return validate_output(output_path, manifest=payload, brief=validation_brief, output_type=output_type,
+                           expected_dimensions=expected_dimensions,
                            existing_output_paths=previous_outputs, logo_card_ip=logo_ips,
                            custom_ip_rights=rights, manual_visual_checks=manual_visual_checks,
                            brief_path=root / "brand-brief.json", manifest_path=manifest_path,
-                           output_root=root / "outputs")
+                           output_root=root / "outputs", target_id=target_id)
 
 
 def _validate(args: argparse.Namespace) -> int:
@@ -527,6 +861,11 @@ def _validate(args: argparse.Namespace) -> int:
     expected_state = QAState.INTERNAL_LOGO_QA if args.type == "logo-card" else QAState.INTERNAL_COVER_QA
     target_state = QAState.LOGO_USER_REVIEW if args.type == "logo-card" else QAState.USER_REVIEW
     if session.state is not expected_state:
+        return 2
+    target_id = getattr(args, "target_id", None)
+    if target_id is not None and session.active_output_target != target_id:
+        return 2
+    if target_id is None and session.active_output_target is not None:
         return 2
     try:
         report = _output_qa_report(args, manual_visual_checks=False)
@@ -543,7 +882,7 @@ def _validate(args: argparse.Namespace) -> int:
         manifest_path, payload = _latest_manifest(directory, "logo-card")
         output_path = _manifest_output_path(manifest_path, payload)
         output_entry = payload.get("output")
-        evidence = {"path": str(output_path.resolve()), "sha256": hashlib.sha256(output_path.read_bytes()).hexdigest(), "manifest_path": str(manifest_path.resolve()), "manifest_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(), "manifest_output_sha256": str(output_entry.get("sha256", "")) if isinstance(output_entry, dict) else "", "output_type": str(payload.get("output_type", "")), "slug": slug}
+        evidence = {"path": str(output_path.resolve()), "sha256": hashlib.sha256(output_path.read_bytes()).hexdigest(), "manifest_path": str(manifest_path.resolve()), "manifest_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(), "manifest_output_sha256": str(output_entry.get("sha256", "")) if isinstance(output_entry, dict) else "", "output_type": str(payload.get("output_type", "")), "slug": slug, "brief_upstream_sha256": _brief_upstream_sha256(project_root(workspace) / "brand-brief.json")}
         if not validate_accepted_logo_evidence(evidence, expected_slug=slug):
             return 2
         session = replace(advance(session, target_state), accepted_logo=None, logo_review_candidate=evidence)
@@ -562,8 +901,13 @@ def _deliver(args: argparse.Namespace) -> int:
     except (FileNotFoundError, ValueError, TypeError, json.JSONDecodeError):
         return 2
     expected_state = QAState.LOGO_USER_REVIEW if args.type == "logo-card" else QAState.USER_REVIEW
+    target_id = getattr(args, "target_id", None)
     target_state = QAState.GENERATE_COVER_BASE if args.type == "logo-card" else QAState.DELIVERED
     if session.state is not expected_state:
+        return 2
+    if target_id is not None and (args.type != "cover" or session.active_output_target != target_id):
+        return 2
+    if target_id is None and session.active_output_target is not None:
         return 2
     if args.type == "logo-card":
         if not validate_accepted_logo_evidence(session.logo_review_candidate, expected_slug=safe_project_slug(args.slug) if args.slug else None):
@@ -579,6 +923,24 @@ def _deliver(args: argparse.Namespace) -> int:
             return 2
         if not report.passed:
             return 2
+    elif target_id is not None:
+        try:
+            report = _output_qa_report(args, manual_visual_checks=True)
+        except (FileNotFoundError, ValueError, TypeError, json.JSONDecodeError):
+            return 2
+        if not report.passed:
+            return 2
+        try:
+            brief = _load_brief(workspace)
+            targets = _confirmed_target_ids(brief)
+        except (FileNotFoundError, ValueError, TypeError, json.JSONDecodeError):
+            return 2
+        delivered = tuple(dict.fromkeys((*session.delivered_targets, target_id)))
+        target_state = QAState.DELIVERED if set(targets).issubset(delivered) else QAState.GENERATION_READY
+        next_session = advance(session, target_state)
+        next_session = replace(next_session, active_output_target=None, delivered_targets=delivered)
+        _write_session(project_root(workspace) / "qa-state.json", next_session)
+        return 0
     else:
         try:
             report = _output_qa_report(args, manual_visual_checks=True)
@@ -602,9 +964,10 @@ def _parser() -> argparse.ArgumentParser:
     p.add_argument("--rights", required=True, choices=["user_authorized", "analysis_only"]); p.add_argument("--save-confirmed", action="store_true"); p.add_argument("--make-default", action="store_true"); p.add_argument("--asset-id"); p.set_defaults(func=_asset_add)
     p = sub.add_parser("state-show"); p.add_argument("--workspace", required=True); p.set_defaults(func=_state_show)
     p = sub.add_parser("state-confirm", help="record the pending state's confirmation (use --value true for confirmation-only keys)"); p.add_argument("--workspace", required=True); p.add_argument("--state"); p.add_argument("--key"); p.add_argument("--value", help="JSON value; confirmation-only keys require exact true"); p.add_argument("--invalidate"); p.set_defaults(func=_state_confirm)
-    p = sub.add_parser("compose"); p.add_argument("--workspace", required=True); p.add_argument("--type", required=True, choices=["logo-card", "cover"]); p.add_argument("--base", required=True); p.set_defaults(func=_compose)
+    p = sub.add_parser("request", help="print the confirmed target's image-tool request without invoking a generator"); p.add_argument("--workspace", required=True); p.add_argument("--target-id", required=True); p.set_defaults(func=_request)
+    p = sub.add_parser("compose"); p.add_argument("--workspace", required=True); p.add_argument("--type", required=True, choices=["logo-card", "cover"]); p.add_argument("--target-id", help="confirmed platform/custom target ID for a cover"); p.add_argument("--request-id", help="request preflight ID returned by the request command"); p.add_argument("--base", required=True); p.set_defaults(func=_compose)
     for name in ("validate", "deliver"):
-        p = sub.add_parser(name); p.add_argument("--workspace", required=True); p.add_argument("--type", default="logo-card", choices=["logo-card", "cover"]); p.add_argument("--slug")
+        p = sub.add_parser(name); p.add_argument("--workspace", required=True); p.add_argument("--type", default="logo-card", choices=["logo-card", "cover"]); p.add_argument("--target-id", help="confirmed platform/custom target ID for a cover"); p.add_argument("--slug")
         if name == "deliver":
             p.add_argument("--reviewed", action="store_true", help="confirm manual visual review")
         p.set_defaults(func=_validate if name == "validate" else _deliver)

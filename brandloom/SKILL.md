@@ -1,11 +1,11 @@
 ---
 name: brandloom
-description: 用于分析项目、对话、附件、链接和品牌素材，并通过确认式 QA 生成或修改项目 LOGO 主视觉、项目标志、GitHub 封面、中英文版本和品牌视觉变体。
+description: 用于分析项目、对话、附件、链接和品牌素材，并通过确认式 QA 生成或修改适配 YouTube、抖音、小红书、GitHub 与自定义尺寸的项目封面、中英文版本和品牌视觉变体；不生成 LOGO 方形主视觉。
 ---
 
 # BrandLoom
 
-先读取 `references/architecture.md`，再根据当前阶段按需读取参考文件；不要一次加载完整参考库。任何生成或改图请求都必须先完成确认式 QA，只有 `qa_state = GENERATION_READY` 且用户明确确认后，才可调用 `host_builtin_image_tool`。
+先读取 `references/architecture.md`，再根据当前阶段按需读取参考文件；不要一次加载完整参考库。任何生成或改图请求都必须先完成确认式 QA，只有 `qa_state = GENERATION_READY` 且用户明确确认后，才可调用 `host_builtin_image_tool`。QA 每次只问一个问题；每次提问都必须在发给用户的消息中展示 A/B/C 等明确选项和实际差别。推荐必须根据已分析的项目内容与目标用途选择，并说明理由；不得固定推荐同一项或只问用户选哪个。多选时明确说明可多选；一个阶段有多个决定时分轮提问并记录，收齐后才通过该阶段。主视觉风格按 `references/style-presets.md` 展示四种明确方案，并完成所选方案对应的条件确认后才可离开 `STYLE_PENDING`。
 
 ## 任务路由
 
@@ -20,13 +20,15 @@ description: 用于分析项目、对话、附件、链接和品牌素材，并�
 
 ## 阶段参考路由
 
-按当前状态仅读取对应文件：上下文→`context-analysis.md`；文案→`copy-directions.md`；风格→`style-presets.md`；字体→`font-presets.md`；公司 LOGO/项目标志/IP→`brand-assets.md` 与 `rights-and-provenance.md`；构图→`composition-recipes.md`；输出→`output-specs.md`；编辑/本地化→`localization-and-editing.md`；问答门禁→`qa-dialogue-workflow.md`；内部验收→`qa-checklist.md`。
+按当前状态仅读取对应文件：上下文→`context-analysis.md`；文案→`copy-directions.md`；风格→`style-presets.md` 与 `composition-recipes.md`；字体→`font-presets.md`；公司 LOGO/项目标志/IP/人物素材→`brand-assets.md` 与 `rights-and-provenance.md`；输出→`output-specs.md`；编辑/本地化→`localization-and-editing.md`；问答门禁→`qa-dialogue-workflow.md`；内部验收→`qa-checklist.md`。
 
 ## 生成结果处理
 
-图片工具只生成无关键文字、无公司 LOGO 的底图；使用 Pillow 确定性合成并写入 manifest。使用工具返回路径 exactly（原样），先执行内部 LOGO QA，再展示 LOGO 供用户验收，之后才生成封面；失败、尺寸不符、文字溢出或权利状态不合格时硬停止并返回相应阶段，不覆盖旧版本。
+进入 `GENERATION_READY` 后，每个目标先运行本地请求预检：`python brandloom/scripts/brandloom_cli.py request --workspace <工作区> --target-id <已确认目标ID>`。读取 JSON 输出的 `prompt`、`dimensions`、`reference_assets` 和 `request_id`，将提示词与每个参考项的 `path` 原样传给宿主图片工具。预检会先校验平台版式和流程文案、公司 LOGO 与项目标志选择，并解析封面文案所需字体；这些本地条件未通过时不得调用图片工具。合成时必须将同一个 `request_id` 传给 `compose --request-id <预检返回的request_id>`；该编号与当前目标、已确认 brief、提示词和参考素材内容绑定，不能跳过、跨目标复用或在参考素材变化后继续用。预检只检查已确认目标与素材并输出请求，不调用图片工具；预检失败必须停止，不得先生成再补确认。安装包用户若没有本地风格参考图，应让用户提供对应参考图（仅本次、仅抽象分析、不设默认），或明确选择按风格文字说明继续；后者写入 `style.reference_mode: "text-only"`。不得因缺图静默跳过参考，也不得把参考图打包进公开发行包。
 
-LOGO-first：完成自动化 QA 后先展示 LOGO 主视觉并等待用户验收；未接受前不得生成或展示封面。编辑只使失效矩阵命中的选择失效；本地化复用已确认底图和素材哈希。自动化 QA 失败阻止 `DELIVERED`，人工视觉 warning 需要用户复核；不自动重试或自动再生。
+图片工具只生成无关键文字、无公司 LOGO 的底图；底图必须是贴合项目用途的真实场景，不使用纯抽象背景替代。背景可满铺，文案可直接叠在场景上，不固定为左侧文案区、右侧场景。按平台分别生成匹配画幅的场景底图；只有宽高比例完全一致时才可无裁切、无变形等比例缩放到目标像素。使用 Pillow 确定性合成并写入 manifest。仅生成用户确认的平台封面，不生成 1:1 LOGO 方形图。默认保持品牌色、核心卖点和视觉气质统一，并按平台调整文案长度、信息量、构图、主体大小和安全区。风格 1、2 必须使用用户单独提供且确认有权使用的人物素材；风格参考图中的人物不能代替人物素材或作为人物身份依据。风格 2 还必须呈现主讲人物和展示大屏，除标题外的文案排入大屏，并先确认穿着与标题强调色。若工作区存在 `.brandloom/style-reference-library/`，每次生成都把已选风格对应的附件作为风格/构图参考传给图片工具（风格 B 同时使用舞台与排版参考）；禁止复制其中人物身份、原文案、商标或水印。确认使用流程卡片时，宽版最多 4 步、竖版最多 3 步；卡片内部约 60% 不透明度（约 40% 透明）并局部柔化，细边框、平滑圆角、文字留白，不模糊整张底图、不加总外框。使用工具返回路径 exactly（原样）；对每张封面分别执行内部 QA 和人工验收；失败、尺寸比例不符、文字溢出或权利状态不合格时硬停止，不覆盖旧版本。
+
+公司 LOGO（如用户确认使用）只作为封面元素等比例合成，不单独生成方形图。编辑只使失效矩阵命中的选择失效；本地化复用已确认底图和素材哈希。自动化 QA 失败阻止 `DELIVERED`，人工视觉 warning 需要用户复核；不自动重试或自动再生。
 
 ## 生成边界
 

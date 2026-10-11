@@ -12,6 +12,7 @@ from brandloom.scripts.brandloom_core.prompt_builder import (
     build_base_prompt,
     validate_generated_path,
 )
+from brandloom.scripts.brandloom_core.validation import _host_request_integrity
 from brandloom.scripts.brandloom_core import prompt_builder
 
 
@@ -52,10 +53,14 @@ class PromptBuilderTests(unittest.TestCase):
         self.assertIn("no visible company logo", prompt)
         self.assertIn("no readable final marketing text", prompt)
 
-    def test_cover_prompt_requests_reused_visual_dna_and_expected_ratio(self) -> None:
+    def test_cover_prompt_is_full_bleed_without_fixed_copy_panel_or_logo_square_inheritance(self) -> None:
         prompt = build_base_prompt(self._brief(), "cover")
         self.assertIn("2:1", prompt)
-        self.assertIn("reuse the accepted LOGO visual DNA", prompt)
+        self.assertIn("full-bleed", prompt)
+        self.assertIn("Do not reserve a fixed left copy panel", prompt)
+        self.assertNotIn("left third", prompt)
+        self.assertNotIn("reuse the accepted LOGO visual DNA", prompt)
+        self.assertIn("no readable final marketing text", prompt)
 
     def test_canonical_assets_select_ip_per_output_type(self) -> None:
         brief = self._brief()
@@ -177,6 +182,227 @@ class PromptBuilderTests(unittest.TestCase):
                 request["accepted_logo"]["sha256"],
                 hashlib.sha256(accepted_logo.read_bytes()).hexdigest(),
             )
+
+    def test_stage_style_request_includes_authorized_person_and_both_local_style_references(self) -> None:
+        with TemporaryDirectory() as directory:
+            workspace = Path(directory)
+            reference_root = workspace / ".brandloom" / "style-reference-library"
+            reference_root.mkdir(parents=True)
+            for name in ("style-02-talk-stage.jpg", "style-03-bold-cover-type.jpg"):
+                Image.new("RGB", (12, 8), "navy").save(reference_root / name)
+            person = workspace / "presenter.png"
+            Image.new("RGB", (12, 16), "white").save(person)
+            source = self._brief()
+            brief = BrandBrief(
+                source.schema_version,
+                source.project,
+                {"title": "Codex project safety"},
+                {
+                    "profile": "stage-screen-poster",
+                    "title_base_color": "#FFFFFF",
+                    "title_emphasis_color": "#FFD72F",
+                    "title_emphasis_text": "Codex",
+                    "presenter_outfit": "科技休闲：简洁深蓝连帽衫",
+                    "person_reference": {
+                        "path": str(person),
+                        "rights_status": "user_authorized",
+                        "save_scope": "this_run",
+                        "default_scope": "none",
+                    },
+                },
+                source.fonts,
+                {},
+                source.outputs,
+            )
+
+            request = prompt_builder.build_host_request(brief, "cover", workspace=workspace)
+            references = request["reference_assets"]
+            by_category = {entry["category"]: entry for entry in references}
+            self.assertEqual(by_category["person-reference"]["rights_status"], "user_authorized")
+            self.assertEqual(by_category["person-reference"]["scope"], "this_run")
+            self.assertEqual(
+                {entry["asset_id"] for entry in references if entry["category"] == "style-reference"},
+                {"style-02-talk-stage", "style-03-bold-cover-type"},
+            )
+            self.assertIn("main presenter", request["prompt"])
+            self.assertIn("large presentation screen", request["prompt"])
+            self.assertIn("#FFFFFF", request["prompt"])
+            self.assertIn("#FFD72F", request["prompt"])
+            self.assertIn("Confirmed presenter outfit: 科技休闲：简洁深蓝连帽衫", request["prompt"])
+            self.assertTrue(_host_request_integrity(
+                request,
+                base=None,
+                expected_output_type="cover",
+                expected_dimensions=(1774, 887),
+            ))
+
+    def test_stage_style_request_fails_closed_without_authorized_person_reference(self) -> None:
+        source = self._brief()
+        brief = BrandBrief(
+            source.schema_version,
+            source.project,
+            source.copy,
+            {"profile": "stage-screen-poster", "title_emphasis_color": "#FFD72F"},
+            source.fonts,
+            source.assets,
+            source.outputs,
+        )
+        with self.assertRaisesRegex(ValueError, "authorized person reference"):
+            prompt_builder.build_host_request(brief, "cover")
+
+    def test_stage_style_requires_confirmed_presenter_outfit(self) -> None:
+        source = self._brief()
+        brief = BrandBrief(
+            source.schema_version,
+            source.project,
+            {"title": "Codex project safety"},
+            {
+                "profile": "stage-screen-poster",
+                "title_base_color": "#FFFFFF",
+                "title_emphasis_color": "#FFD72F",
+                "title_emphasis_text": "Codex",
+            },
+            source.fonts,
+            {},
+            source.outputs,
+        )
+
+        with self.assertRaisesRegex(ValueError, "confirmed presenter outfit"):
+            prompt_builder.build_base_prompt(brief, "cover")
+
+    def test_stage_style_rejects_low_contrast_emphasis_color(self) -> None:
+        source = self._brief()
+        brief = BrandBrief(
+            source.schema_version,
+            source.project,
+            {"title": "Codex project safety"},
+            {
+                "profile": "stage-screen-poster",
+                "title_base_color": "#FFFFFF",
+                "title_emphasis_color": "#102030",
+                "title_emphasis_text": "Codex",
+                "presenter_outfit": "简洁日常：纯色 T 恤",
+            },
+            source.fonts,
+            {},
+            source.outputs,
+        )
+
+        with self.assertRaisesRegex(ValueError, "contrast ratio of at least 3:1"):
+            prompt_builder.build_base_prompt(brief, "cover")
+
+    def test_style_reference_can_be_supplied_for_one_run_as_analysis_only(self) -> None:
+        with TemporaryDirectory() as directory:
+            workspace = Path(directory)
+            reference = workspace / "uploaded-style.png"
+            Image.new("RGB", (12, 8), "white").save(reference)
+            source = self._brief()
+            brief = BrandBrief(
+                source.schema_version,
+                source.project,
+                source.copy,
+                {
+                    "profile": "light-saas-product-showcase",
+                    "reference_mode": "provided",
+                    "reference_paths": [{
+                        "path": str(reference),
+                        "rights_status": "analysis_only",
+                        "save_scope": "this_run",
+                        "default_scope": "none",
+                    }],
+                },
+                source.fonts,
+                {},
+                source.outputs,
+            )
+
+            request = prompt_builder.build_host_request(brief, "cover", workspace=workspace)
+            style_reference = next(item for item in request["reference_assets"] if item["category"] == "style-reference")
+            self.assertEqual(style_reference["rights_status"], "analysis_only")
+            self.assertEqual(style_reference["scope"], "this_run")
+            self.assertEqual(style_reference["path"], str(reference.resolve()))
+
+    def test_style_references_can_be_explicitly_skipped_using_text_only_mode(self) -> None:
+        with TemporaryDirectory() as directory:
+            workspace = Path(directory)
+            source = self._brief()
+            brief = BrandBrief(
+                source.schema_version,
+                source.project,
+                source.copy,
+                {"profile": "light-saas-product-showcase", "reference_mode": "text-only"},
+                source.fonts,
+                {},
+                source.outputs,
+            )
+
+            request = prompt_builder.build_host_request(brief, "cover", workspace=workspace)
+            self.assertFalse(any(item["category"] == "style-reference" for item in request["reference_assets"]))
+
+    def test_missing_style_reference_requires_explicit_fallback(self) -> None:
+        with TemporaryDirectory() as directory:
+            workspace = Path(directory)
+            source = self._brief()
+            brief = BrandBrief(
+                source.schema_version,
+                source.project,
+                source.copy,
+                {"profile": "light-saas-product-showcase"},
+                source.fonts,
+                {},
+                source.outputs,
+            )
+
+            with self.assertRaisesRegex(ValueError, "reference_mode to text-only"):
+                prompt_builder.build_host_request(brief, "cover", workspace=workspace)
+
+    def test_existing_project_style_accepts_confirmed_prior_visual_as_reference(self) -> None:
+        with TemporaryDirectory() as directory:
+            workspace = Path(directory)
+            reference = workspace / "approved-cover.png"
+            Image.new("RGB", (12, 8), "white").save(reference)
+            source = self._brief()
+            brief = BrandBrief(
+                source.schema_version,
+                source.project,
+                source.copy,
+                {
+                    "profile": "project-existing-style",
+                    "reference_mode": "provided",
+                    "source_confirmed": True,
+                    "source_description": "已确认的上一版项目封面视觉方向",
+                    "reference_paths": [{
+                        "path": str(reference),
+                        "rights_status": "analysis_only",
+                        "save_scope": "this_run",
+                        "default_scope": "none",
+                    }],
+                },
+                source.fonts,
+                {},
+                source.outputs,
+            )
+
+            request = prompt_builder.build_host_request(brief, "cover", workspace=workspace)
+            references = [item for item in request["reference_assets"] if item["category"] == "style-reference"]
+            self.assertEqual(len(references), 1)
+            self.assertEqual(references[0]["path"], str(reference.resolve()))
+
+    def test_existing_project_style_requires_explicit_source_confirmation(self) -> None:
+        with TemporaryDirectory() as directory:
+            source = self._brief()
+            brief = BrandBrief(
+                source.schema_version,
+                source.project,
+                source.copy,
+                {"profile": "project-existing-style", "reference_mode": "text-only"},
+                source.fonts,
+                {},
+                source.outputs,
+            )
+
+            with self.assertRaisesRegex(ValueError, "confirmed source_description and source_confirmed"):
+                prompt_builder.build_host_request(brief, "cover", workspace=Path(directory))
 
 
 if __name__ == "__main__":

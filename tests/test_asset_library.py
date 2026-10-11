@@ -95,6 +95,36 @@ class AssetLibraryTests(unittest.TestCase):
                     os.environ["CODEX_HOME"] = previous
             self.assertEqual(record.rights_status, RightsStatus.ANALYSIS_ONLY)
 
+    def test_person_reference_requires_authorization_and_can_be_resolved(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            record = register_asset(
+                self._image(root, "person.png"),
+                category=AssetCategory.PERSON_REFERENCE,
+                scope=AssetScope.PROJECT,
+                workspace=root,
+                rights_status=RightsStatus.USER_AUTHORIZED,
+                save_scope_confirmed=True,
+                make_default=False,
+            )
+            resolved = asset_library.resolve_asset(
+                AssetCategory.PERSON_REFERENCE,
+                workspace=root,
+                explicit_asset_id=record.asset_id,
+            )
+            self.assertIsNotNone(resolved)
+            self.assertEqual(resolved.record.category, AssetCategory.PERSON_REFERENCE)
+            self.assertTrue(resolved.path.is_file())
+            with self.assertRaises(ValueError):
+                register_asset(
+                    self._image(root, "unapproved-person.png"),
+                    category=AssetCategory.PERSON_REFERENCE,
+                    scope=AssetScope.PROJECT,
+                    workspace=root,
+                    rights_status=RightsStatus.UNKNOWN,
+                    save_scope_confirmed=True,
+                )
+
     def test_unknown_rights_are_rejected_for_generation_assets(self) -> None:
         with TemporaryDirectory() as directory:
             root = Path(directory)

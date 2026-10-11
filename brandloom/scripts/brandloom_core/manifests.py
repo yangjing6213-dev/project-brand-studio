@@ -82,6 +82,8 @@ def build_generation_manifest(
     logo_source_hash: str | None = None,
     logo_operation: str | None = None,
     logo_confirmation: str | None = None,
+    output_target: Mapping[str, object] | None = None,
+    generated_base_dimensions: tuple[int, int] | None = None,
 ) -> dict[str, object]:
     """Build a JSON-safe manifest without retaining secrets or conversation text."""
     fonts = {
@@ -119,6 +121,12 @@ def build_generation_manifest(
         manifest["logo_operation"] = str(logo_operation)
     if logo_confirmation is not None:
         manifest["logo_confirmation"] = str(logo_confirmation)
+    if output_target is not None:
+        manifest["output_target"] = dict(output_target)
+        manifest["target_id"] = str(output_target.get("id", ""))
+        manifest["target_dimensions"] = list(output_target.get("dimensions", ()))
+    if generated_base_dimensions is not None:
+        manifest["generated_base_dimensions"] = [int(generated_base_dimensions[0]), int(generated_base_dimensions[1])]
     return manifest
 
 

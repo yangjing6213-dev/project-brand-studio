@@ -23,9 +23,9 @@ class Task2ContractTests(unittest.TestCase):
 
     def _ready_brief(self, root: Path, assets):
         runtime = root / ".brandloom"; runtime.mkdir(parents=True, exist_ok=True)
-        payload = {"schema_version":"1.0","project":{"name":"Demo","slug":"demo"},"copy":{"title":"Demo","subtitle":"Local"},"style":{"foreground":"#111111"},"fonts":{"heading":str(find_test_font()),"body":str(find_test_font())},"assets":assets,"outputs":{}}
+        payload = {"schema_version":"1.0","project":{"name":"Demo","slug":"demo"},"copy":{"title":"Demo","subtitle":"Local"},"style":{"foreground":"#111111"},"fonts":{"heading":str(find_test_font()),"body":str(find_test_font())},"assets":{"company_logo":"default", **assets},"outputs":{}}
         (runtime / "brand-brief.json").write_text(json.dumps(payload), encoding="utf-8")
-        confirmed = {key: True for key in ("context","copy","style","font","company_logo","project_mark","ip_combination","ip_usage","shot_list","output_spec","coherence","generation_confirmation")}; confirmed["ip_cast"] = "tuotuo"
+        confirmed = {key: True for key in ("context","output_targets","copy","style","font","company_logo","project_mark","ip_combination","ip_usage","shot_list","output_spec","coherence","generation_confirmation")}; confirmed["ip_cast"] = "tuotuo"
         (runtime / "qa-state.json").write_text(json.dumps({"schema_version":"1.0","session_id":"s","mode":"new","state":"GENERATION_READY","project_slug":"demo","confirmed":confirmed,"invalidated":[],"generation_backend":"host_builtin_image_tool"}), encoding="utf-8")
     def _files(self, root: Path):
         brief = root / "brief.json"; brief.write_text("{}")
@@ -127,6 +127,12 @@ class Task2ContractTests(unittest.TestCase):
         changed = invalidate_from(session, "style")
         self.assertIsNone(changed.accepted_logo)
         self.assertIsNone(changed.logo_review_candidate)
+
+    def test_copy_only_invalidation_preserves_accepted_logo_evidence(self):
+        evidence = {"path": "x", "sha256": "a"}
+        session = QASession("1.0", "s", TaskMode.NEW, QAState.GENERATION_READY, "p", accepted_logo=evidence, confirmed={"copy": True})
+        changed = invalidate_from(session, "copy")
+        self.assertEqual(changed.accepted_logo, evidence)
 
     def test_qasession_json_roundtrip_preserves_candidate_and_accepted(self):
         with tempfile.TemporaryDirectory() as temp:

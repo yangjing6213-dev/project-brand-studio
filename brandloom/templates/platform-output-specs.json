@@ -1,0 +1,65 @@
+{
+  "schema_version": "1.0",
+  "targets": [
+    {
+      "id": "youtube-long-video",
+      "platform": "youtube",
+      "purpose": "long_video_thumbnail",
+      "dimensions": [3840, 2160],
+      "ratio": "16:9",
+      "spec_status": "official_recommendation",
+      "minimum_dimensions": [640, 360],
+      "safe_area": null
+    },
+    {
+      "id": "youtube-shorts",
+      "platform": "youtube",
+      "purpose": "shorts_cover",
+      "dimensions": [2160, 3840],
+      "ratio": "9:16",
+      "spec_status": "official_recommendation",
+      "minimum_dimensions": [360, 640],
+      "safe_area": null
+    },
+    {
+      "id": "youtube-channel-banner",
+      "platform": "youtube",
+      "purpose": "channel_banner",
+      "dimensions": [2560, 1440],
+      "ratio": "16:9",
+      "spec_status": "official_recommendation",
+      "minimum_dimensions": [2048, 1152],
+      "safe_area": {"minimum_canvas": [2048, 1152], "minimum_safe_area": [1235, 338], "maximum_file_bytes": 6291456}
+    },
+    {
+      "id": "douyin-cover",
+      "platform": "douyin",
+      "purpose": "video_cover",
+      "dimensions": [1080, 1440],
+      "ratio": "3:4",
+      "spec_status": "practical_recommendation",
+      "minimum_dimensions": null,
+      "safe_area": null
+    },
+    {
+      "id": "xiaohongshu-cover",
+      "platform": "xiaohongshu",
+      "purpose": "note_cover",
+      "dimensions": [1080, 1440],
+      "ratio": "3:4",
+      "spec_status": "practical_recommendation",
+      "minimum_dimensions": null,
+      "safe_area": null
+    },
+    {
+      "id": "github-social-preview",
+      "platform": "github",
+      "purpose": "social_preview",
+      "dimensions": [1280, 640],
+      "ratio": "2:1",
+      "spec_status": "official_recommendation",
+      "minimum_dimensions": [640, 320],
+      "safe_area": {"maximum_file_bytes": 1048576, "maximum_file_bytes_exclusive": true}
+    }
+  ]
+}

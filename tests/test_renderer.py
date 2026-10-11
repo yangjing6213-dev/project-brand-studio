@@ -217,6 +217,47 @@ class RendererTests(unittest.TestCase):
                 },
             )
 
+    def test_stage_style_renders_white_title_with_confirmed_keyword_accent(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            template = root / "stage.json"
+            template.write_text(json.dumps({
+                "schema_version": "1.0",
+                "output_stem": "stage",
+                "canvas": {"width": 320, "height": 120},
+                "slots": {"title": {"x": 8, "y": 8, "w": 304, "h": 100, "min_font_size": 24, "max_font_size": 48}},
+            }), encoding="utf-8")
+            base = root / "base.png"
+            Image.new("RGBA", (320, 120), (0, 0, 0, 255)).save(base)
+            source = self._brief("Codex on stage")
+            brief = BrandBrief(
+                source.schema_version,
+                source.project,
+                {"title": "Codex on stage"},
+                {
+                    "profile": "stage-screen-poster",
+                    "title_base_color": "#FFFFFF",
+                    "title_emphasis_color": "#FFD72F",
+                    "title_emphasis_text": "Codex",
+                },
+                source.fonts,
+                source.assets,
+                source.outputs,
+            )
+
+            result = render_brand_asset(
+                template,
+                brief,
+                base_image=base,
+                asset_paths={},
+                font_paths={"heading": self._font(), "body": self._font()},
+                output_dir=root / "out",
+            )
+            with Image.open(result.output_path) as image:
+                pixels = list(image.convert("RGB").getdata())
+            self.assertIn((255, 215, 47), pixels)
+            self.assertIn((255, 255, 255), pixels)
+
     def test_unknown_nonempty_copy_field_hard_stops(self) -> None:
         with TemporaryDirectory() as directory:
             root = Path(directory)

@@ -6,16 +6,20 @@
   <img src="docs/examples/cover-2x1-v07-zh.png" alt="BrandLoom 中文版封面" width="100%">
 </p>
 
-BrandLoom 是一个面向 Codex 的品牌视觉工作流 Skill。它通过一次一个问题的确认式 QA，整理项目上下文、文案、风格、字体、品牌素材、使用权和输出规格，再生成可追溯的 LOGO 主视觉、项目标志与项目封面。
+BrandLoom 是一个面向 Codex 的品牌视觉工作流 Skill。它通过一次一个问题的确认式 QA，先确认目标平台和封面尺寸，再整理项目文案、风格、字体、品牌素材与使用权；每轮都会明确显示可选项，并根据项目用途给出有理由的推荐。新流程只生成平台封面，不生成 LOGO 方形主视觉。
 
 BrandLoom 不是一段一次性生图提示词，而是一套本地优先、可确认、可复用、可审计的品牌视觉流程。
 变更会按失效矩阵重新确认受影响的选择。
 
-当前默认输出尺寸：
+QA 规格中定义的平台封面目标：
 
-- `logo-card`：1254×1254，1:1
-- `cover`：1774×887，2:1
+- YouTube 长视频缩略图：3840×2160；Shorts 封面：2160×3840；频道横幅：2560×1440
+- 抖音作品封面：1080×1440（实用建议值，不是官方固定像素要求）
+- 小红书笔记封面：1080×1440（常用建议值，不是官方唯一像素规格）
 - GitHub Social Preview：1280×640
+- 允许逐项确认自定义宽、高像素
+
+平台封面现已支持按各目标尺寸分别排版、合成、验收和交付；底图只有比例与目标完全一致时才会等比例缩放，不裁切、不拉伸。自定义尺寸限制见[输出规格](brandloom/references/output-specs.md)。
 
 ## 一、这个仓库是什么？
 
@@ -53,12 +57,11 @@ BrandLoom 会先理解项目，再确认视觉决策，最后生成视觉资产�
 
 BrandLoom 可以产出：
 
-- 1:1 LOGO 主视觉：`1254×1254`
-- 2:1 横向项目封面：`1774×887`
-- GitHub Social Preview：`1280×640`
+- YouTube、抖音、小红书、GitHub 和用户自定义尺寸的封面
+- 每个平台独立的文案、语言、真实场景构图和 JSON manifest
 - 中文、英文和中英双语版本
-- 仅 LOGO、仅封面和视觉变体
-- 可分别配置的 LOGO 主视觉与封面 IP 组合
+- 仅封面和视觉变体
+- 按平台分别确认的 IP 组合
 - 项目标志、确定性排版文案和功能信息
 - 生成 manifest、输入素材哈希、输出路径和版本记录
 - `plan-only` 路由下的文案方向、shot list 和图片提示词
@@ -80,15 +83,10 @@ BrandLoom 可以产出：
 以下两张图例为 BrandLoom Skill 生成的图例。
 
 <p align="center">
-  <img src="docs/examples/brandloom-host-logo-card-1254x1254.png" alt="1254×1254 方形 LOGO 主视觉图例" width="80%">
-</p>
-
-<p align="center">
   <img src="docs/examples/brandloom-host-cover-1774x887.png" alt="1774×887 横向封面图例" width="80%">
 </p>
 
-- 方形 LOGO 主视觉：1254×1254（1:1），满铺背景，不含人物或 IP 形象。
-- 横向封面：1774×887（约 2:1），满铺背景，包含 author-anime、tuotuo 和 xingbi，文案叠加在场景上。
+- 上图为较早版本的横向封面示例；当前新 QA 不生成方形 LOGO 主视觉，多平台封面会分别适配尺寸。
 
 ## 六、安装方法
 
@@ -139,7 +137,7 @@ Use $brandloom
 例如：
 
 ```text
-Use $brandloom，为我的开源项目制作中文和英文 LOGO 主视觉，以及一张 GitHub 项目封面。
+Use $brandloom，为我的开源项目制作适配 YouTube、抖音、小红书和 GitHub 的中文封面。
 ```
 
 BrandLoom 的 Skill 路由包括：
@@ -154,7 +152,7 @@ BrandLoom 的 Skill 路由包括：
 
 其中 `analysis-only` 与 `custom-IP` 是 Skill 对话路由，不是 `brandloom_cli.py` 的 TaskMode 参数。
 
-一次典型的 QA 只确认一个有边界的选择，例如“方形 LOGO 主视觉是否包含 IP 形象”；确认完成后才会进入下一题。
+新 QA 首先确认平台用途与尺寸，再确认文案和视觉设计；平台目标可多选，YouTube 需说明是长视频缩略图、Shorts 封面还是频道横幅。
 
 ## 八、项目工作流程
 
@@ -163,7 +161,7 @@ BrandLoom 的 Skill 路由包括：
         ↓
 一次一个问题的确认式 QA
         ↓
-确认文案、风格、字体、LOGO、项目标志、IP、构图和尺寸
+先确认平台目标与尺寸，再确认文案、风格、字体、品牌素材、IP 和构图
         ↓
 确认素材使用权、保存 scope 和默认 scope
         ↓
@@ -177,14 +175,12 @@ BrandLoom 的 Skill 路由包括：
         ↓
 执行内部 QA
         ↓
-先展示并验收 LOGO 主视觉
+为每个平台单独生成底图、合成、验收与交付
         ↓
-生成并验收封面、双语版本或其他变体
-        ↓
-写入 manifest、版本记录并交付
+所有已选平台通过后结束本次交付
 ```
 
-LOGO 主视觉与封面可以分别选择 IP 组合。按项目确认结果，方形主视觉可以关闭人物/IP，横向封面可以加入人物或 IP。
+新流程不生成方形 LOGO 主视觉；公司 LOGO 仍可在用户确认后作为封面元素使用，且必须保持原图比例和字形。
 
 ## 九、项目目录结构
 
@@ -238,7 +234,7 @@ dist/
 - 所有上传素材都必须确认使用权、保存 scope 和默认 scope。
 - 公开发行包只包含具有 provenance、`authorization_status` 为 `user_authorized` 且 `distribution_scope` 为 `public_skill_package` 的资产。
 - 第三方商业参考海报只能提炼抽象风格，不进入公开发行包。
-- 自定义尺寸只适用于显式本地 JSON 模板与 renderer API，并需要重新验证；CLI compose 与宿主请求通道只接受固定默认尺寸，不能通过缩放无效返回制造通过。
+- 自定义尺寸由 CLI 和本地 JSON 模板支持：每边 320–8192 像素、总像素不超过 1600 万；比例不匹配的底图会停止，不会靠裁切或拉伸通过。
 - 生成内容对外发布前必须进行人工复核，并按需要说明 AI 参与。
 - 源代码和文档适用 MIT License；公司 LOGO、IP 和示例图片的权利以 `NOTICE.md` 及各自 provenance 记录为准。
 

@@ -97,12 +97,12 @@ class Task1VisualAcceptanceTests(unittest.TestCase):
             brandloom_cli.main(["asset-add", "--workspace", str(root), "--source", str(logo), "--category", "company-logo",
                                 "--scope", "project", "--rights", "user_authorized", "--save-confirmed", "--make-default"])
             runtime = root / ".brandloom"
-            confirmations = {key: True for key in ("context", "copy", "style", "font", "company_logo", "project_mark",
+            confirmations = {key: True for key in ("context", "output_targets", "copy", "style", "font", "company_logo", "project_mark",
                                                     "ip_combination", "ip_usage", "shot_list", "output_spec", "coherence",
                                                     "generation_confirmation")}
             (runtime / "brand-brief.json").write_text(json.dumps({"schema_version": "1.0", "project": {"slug": "demo"},
                 "copy": {"title": "Hello"}, "style": {}, "fonts": {"heading": str(find_test_font())},
-                "assets": {"project_mark": None, "company_logo_treatment": {}}, "outputs": {}}), encoding="utf-8")
+                "assets": {"company_logo": "default", "project_mark": None, "company_logo_treatment": {}}, "outputs": {}}), encoding="utf-8")
             (runtime / "qa-state.json").write_text(json.dumps({"schema_version": "1.0", "session_id": "s", "mode": "new",
                 "state": "GENERATION_READY", "project_slug": "demo", "confirmed": {**confirmations, "ip_cast": "tuotuo"}, "invalidated": [],
                 "generation_backend": "host_builtin_image_tool"}), encoding="utf-8")

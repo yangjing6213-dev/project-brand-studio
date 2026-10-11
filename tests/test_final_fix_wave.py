@@ -20,7 +20,7 @@ from tests.font_test_utils import find_test_font
 
 class FinalFixWaveTests(unittest.TestCase):
     def _session(self, *, treatment: str | None = None) -> QASession:
-        confirmed = {key: True for key in ("context", "copy", "style", "font", "company_logo", "project_mark", "ip_combination", "ip_usage", "shot_list", "output_spec", "coherence", "generation_confirmation")}
+        confirmed = {key: True for key in ("context", "output_targets", "copy", "style", "font", "company_logo", "project_mark", "ip_combination", "ip_usage", "shot_list", "output_spec", "coherence", "generation_confirmation")}
         confirmed["ip_cast"] = "tuotuo"
         if treatment is not None:
             confirmed["company_logo_treatment"] = treatment
