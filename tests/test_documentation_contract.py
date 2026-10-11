@@ -22,6 +22,17 @@ def _yaml_string(text: str, key: str) -> str:
 
 
 class DocumentationContractTests(unittest.TestCase):
+    def test_marketplace_copy_matches_cover_only_workflow(self) -> None:
+        listing = (ROOT / "docs" / "marketplace-listing.md").read_text(encoding="utf-8")
+        architecture = (ROOT / "brandloom" / "references" / "architecture.md").read_text(encoding="utf-8")
+
+        self.assertNotIn("logo cards", listing)
+        self.assertNotIn("logo-first", listing)
+        self.assertNotIn("LOGO 主视觉", listing)
+        self.assertIn("适配平台的项目封面", listing)
+        self.assertNotIn("方形 LOGO 主视觉与封面必须", architecture)
+        self.assertIn("所有平台封面", architecture)
+
     def test_skill_ui_metadata_matches_current_cover_only_workflow(self) -> None:
         metadata = (ROOT / "brandloom" / "agents" / "openai.yaml").read_text(encoding="utf-8")
         short_description = _yaml_string(metadata, "short_description")

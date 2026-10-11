@@ -36,7 +36,7 @@ Replace the Skill's logo-square-first workflow with user-selected YouTube, Douyi
 - User-facing QA now requires visibly labeled choices in every question, a project-specific recommendation with its reason, and separate questions when one stage contains multiple decisions; a contract test guards this requirement.
 - User confirmed one real-scene concept across platforms, with separate bases per aspect ratio and consistent setting, lighting, and mood.
 - User confirmed workflow diagram density adapts to each canvas: clear 3–4 steps on wide covers; 2–3 short steps or benefits on vertical/small covers, without tiny text.
-- User confirmed diagram styling: thin borders, approximately 60% opacity (40% transparency) frosted treatment inside each step card, no whole-image blur or outer diagram frame, smooth corners, and sufficient text spacing.
+- User confirmed diagram styling: thin borders, approximately 60% transparency (40% opacity) frosted treatment inside each step card, no whole-image blur or outer diagram frame, smooth corners, and sufficient text spacing.
 - User-confirmed base-image rule is recorded: exact aspect-ratio match permits proportional resizing only; different ratios stop and require a separately generated base; cropping and distortion are prohibited.
 - Full platform targets, constrained custom sizes, proportional resize/no-crop handling, per-target templates, frosted workflow-card rendering, independent manifests, target file-size validation, and batch delivery were implemented and covered by tests.
 - Cover image prompts no longer inherit the old fixed left-third/bottom-band blank zones; they explicitly request a full-bleed real scene with overlay copy and no fixed left-copy/right-scene arrangement.

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+from dataclasses import replace
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
@@ -61,6 +62,69 @@ class PromptBuilderTests(unittest.TestCase):
         self.assertNotIn("left third", prompt)
         self.assertNotIn("reuse the accepted LOGO visual DNA", prompt)
         self.assertIn("no readable final marketing text", prompt)
+
+    def test_project_context_and_confirmed_scene_reach_both_image_requests(self) -> None:
+        # Removing the context forwarding would make unrelated projects receive
+        # the same generic backdrop instructions.
+        brief = replace(self._brief(),
+            project={"name": "Harvest", "summary": "Coordinate produce harvests and inventory"},
+            style={"profile": "soft-3d-brand-icon",
+                   "scene": "A produce packing shed with wooden crates and a sorting bench",
+                   "scene_rationale": "Harvest staff count and sort produce here"})
+        for output_type in ("logo_card", "cover"):
+            with self.subTest(output_type=output_type):
+                request = prompt_builder.build_host_request(brief, output_type)
+                self.assertIn(brief.project["summary"], request["prompt"])
+                self.assertIn(brief.style["scene"], request["prompt"])
+                self.assertIn(brief.style["scene_rationale"], request["prompt"])
+                self.assertNotIn(brief.copy["title"], request["prompt"])
+
+    def test_real_scene_policy_applies_to_every_cover_style(self) -> None:
+        # A soft-3D/black-gold preset override must not silently permit an
+        # abstract background in a platform-cover image request.
+        for profile in ("bright-saas-real-scene", "dark-neon-product",
+                        "high-density-commercial", "cinematic-monitor-hero",
+                        "editorial-minimal-grid", "soft-3d-brand-icon"):
+            with self.subTest(profile=profile):
+                brief = replace(self._brief(), style={"profile": profile})
+                prompt = build_base_prompt(brief, "cover")
+                self.assertIn("photorealistic real-world scene", prompt)
+                self.assertIn("Do not substitute an all-black", prompt)
+                self.assertIn("full-bleed", prompt)
+                self.assertNotIn("reserved blank text zones", prompt)
+
+    def test_creator_desk_style_describes_supported_scene_and_deterministic_type(self) -> None:
+        brief = replace(
+            self._brief(),
+            style={
+                "profile": "creator-desk-handwritten",
+                "reference_mode": "text-only",
+                "person_reference": {"path": "authorized-person.png"},
+            },
+        )
+        prompt = build_base_prompt(brief, "cover")
+        self.assertIn("warm wood creator workspace", prompt)
+        self.assertIn("soft amber", prompt)
+        self.assertIn("natural relaxed posture at a computer", prompt)
+        self.assertIn("deterministic copy overlay", prompt)
+        self.assertIn("do not draw readable text", prompt.casefold())
+
+    def test_legacy_brief_forwards_purpose_without_inventing_a_scene(self) -> None:
+        # Older briefs have purpose rather than summary and no explicit scene.
+        brief = replace(self._brief(), project={"name": "Practice", "purpose": "Organize music practice"})
+        prompt = build_base_prompt(brief, "cover")
+        self.assertIn("Organize music practice", prompt)
+        self.assertNotIn("packing shed", prompt)
+        self.assertNotIn("office desk", prompt)
+
+    def test_unrelated_projects_do_not_receive_identical_background_context(self) -> None:
+        kitchen = replace(self._brief(), project={"name": "Kitchen", "summary": "Plan recipes and meals"})
+        music = replace(self._brief(), project={"name": "Music", "summary": "Organize rehearsal sessions"})
+        first = build_base_prompt(kitchen, "logo_card")
+        second = build_base_prompt(music, "logo_card")
+        self.assertNotEqual(first, second)
+        self.assertIn("Plan recipes and meals", first)
+        self.assertNotIn("Organize rehearsal sessions", first)
 
     def test_canonical_assets_select_ip_per_output_type(self) -> None:
         brief = self._brief()

@@ -131,6 +131,18 @@ def _copy(brief: BrandBrief | Mapping[str, object]) -> Mapping[str, object]:
 
 
 _RENDERED_COPY_FIELDS = ("title", "subtitle", "value_line", "features")
+
+
+def _text_spacing(slot: Mapping[str, object]) -> int:
+    """Return deterministic multiline spacing for a text slot."""
+    value = slot.get("line_spacing", 8)
+    try:
+        spacing = int(value)
+    except (TypeError, ValueError):
+        spacing = 8
+    return max(0, spacing)
+
+
 _COPY_METADATA_FIELDS = {"language", "direction"}
 
 
@@ -314,26 +326,41 @@ def _draw_emphasized_title(
             draw.text((highlighted_x + font.getlength(highlighted), line_y), after, font=font, fill=base_color)
         cursor = line_end + 1
 
-def _draw_step_icon(draw: ImageDraw.ImageDraw, center: tuple[int, int], index: int, color: tuple[int, int, int, int]) -> None:
+def _draw_step_icon(
+    draw: ImageDraw.ImageDraw,
+    center: tuple[int, int],
+    index: int,
+    color: tuple[int, int, int, int],
+    scale: float = 1.0,
+) -> None:
     """Draw a small geometric stage icon without relying on an external icon font."""
     cx, cy = center
+
+    def s(value: float) -> int:
+        return max(1, round(value * scale))
+
     if index == 0:  # inspect / analyze
-        draw.ellipse((cx - 10, cy - 10, cx + 6, cy + 6), outline=color, width=3)
-        draw.line((cx + 4, cy + 4, cx + 13, cy + 13), fill=color, width=3)
+        draw.ellipse((cx - s(10), cy - s(10), cx + s(6), cy + s(6)), outline=color, width=s(3))
+        draw.line((cx + s(4), cy + s(4), cx + s(13), cy + s(13)), fill=color, width=s(3))
     elif index == 1:  # confirm
-        draw.ellipse((cx - 12, cy - 12, cx + 12, cy + 12), outline=color, width=3)
-        draw.line((cx - 6, cy, cx - 1, cy + 6), fill=color, width=3)
-        draw.line((cx - 1, cy + 6, cx + 8, cy - 6), fill=color, width=3)
+        draw.ellipse((cx - s(12), cy - s(12), cx + s(12), cy + s(12)), outline=color, width=s(3))
+        draw.line((cx - s(6), cy, cx - s(1), cy + s(6)), fill=color, width=s(3))
+        draw.line((cx - s(1), cy + s(6), cx + s(8), cy - s(6)), fill=color, width=s(3))
     elif index == 2:  # generate / spark
-        draw.polygon(((cx, cy - 14), (cx + 5, cy - 5), (cx + 14, cy), (cx + 5, cy + 5), (cx, cy + 14), (cx - 5, cy + 5), (cx - 14, cy), (cx - 5, cy - 5)), outline=color)
-        draw.line((cx, cy - 9, cx, cy + 9), fill=color, width=2)
-        draw.line((cx - 9, cy, cx + 9, cy), fill=color, width=2)
+        draw.polygon(
+            (
+                (cx, cy - s(14)), (cx + s(5), cy - s(5)), (cx + s(14), cy),
+                (cx + s(5), cy + s(5)), (cx, cy + s(14)), (cx - s(5), cy + s(5)),
+                (cx - s(14), cy), (cx - s(5), cy - s(5)),
+            ),
+            outline=color,
+        )
+        draw.line((cx, cy - s(9), cx, cy + s(9)), fill=color, width=s(2))
+        draw.line((cx - s(9), cy, cx + s(9), cy), fill=color, width=s(2))
     else:  # deliver / package
-        draw.rectangle((cx - 12, cy - 8, cx + 12, cy + 11), outline=color, width=3)
-        draw.line([(cx - 12, cy - 2), (cx, cy + 5), (cx + 12, cy - 2)], fill=color, width=2)
-        draw.line((cx, cy - 8, cx, cy + 5), fill=color, width=2)
-
-
+        draw.rectangle((cx - s(12), cy - s(8), cx + s(12), cy + s(11)), outline=color, width=s(3))
+        draw.line([(cx - s(12), cy - s(2)), (cx, cy + s(5)), (cx + s(12), cy - s(2))], fill=color, width=s(2))
+        draw.line((cx, cy - s(8), cx, cy + s(5)), fill=color, width=s(2))
 def _fit_overlay_font(font_path: Path | str, text: str, *, max_size: int, min_size: int, max_width: int) -> ImageFont.FreeTypeFont:
     """Choose the largest font that remains inside an inset workflow text box."""
     for size in range(max_size, min_size - 1, -1):
@@ -499,6 +526,7 @@ def validate_composition_layout(
             font_paths=font_paths,
             language=str(_copy(brief).get("language", "en")),
         )
+
 def _draw_workflow_diagram(
     output: Image.Image,
     config: Mapping[str, object],
@@ -506,7 +534,7 @@ def _draw_workflow_diagram(
     font_paths: Mapping[str, Path | str],
     language: str,
 ) -> None:
-    """Draw a crisp, transparent workflow occupying the right side of a cover."""
+    """Draw a sharp, full-width workflow with blur restricted to card interiors."""
     box = _overlay_box(config)
     steps = config.get("steps")
     if box is None or not isinstance(steps, list) or len(steps) < 2:
@@ -515,54 +543,100 @@ def _draw_workflow_diagram(
     if x + width > output.width or y + height > output.height:
         return
     try:
-        blur_radius = max(0, int(config.get("blur_radius", 0)))
-    except (TypeError, ValueError):
-        blur_radius = 0
-    if blur_radius:
-        return
+        if max(0, int(config.get("blur_radius", 0))) != 0:
+            return
+        render_scale = float(config.get("render_scale", 1.0))
+        heading_subtitle_gap = float(config.get("heading_subtitle_gap", 8))
+        if "node_blur_radius" in config or "node_blur_transparency" in config:
+            node_blur_radius = max(0, int(config.get("node_blur_radius", 0)))
+            node_transparency = float(config.get("node_blur_transparency", 1.0))
+        else:
+            blur_ratio = float(config.get("card_blur_radius_ratio", 0.0))
+            node_blur_radius = max(0, round(min(width, height) * blur_ratio))
+            card_opacity = float(config.get("card_fill_opacity", 0.0))
+            node_transparency = 1.0 - card_opacity
+        node_tint = _rgba(config.get("card_fill"), (10, 23, 48, 255))
+        corner_radius = max(0, float(config.get("node_corner_radius", 16)))
+        border_width = max(1, float(config.get("node_border_width", 2)))
+    except (TypeError, ValueError, OverflowError):
+        raise BrandIntegrityError("workflow diagram geometry and blur settings must be numeric")
+    if not 0.25 <= render_scale <= 4.0:
+        raise BrandIntegrityError("workflow render_scale must be between 0.25 and 4")
+    if heading_subtitle_gap < 0:
+        raise BrandIntegrityError("workflow heading_subtitle_gap must be non-negative")
+    if not 0.0 <= node_transparency <= 1.0:
+        raise BrandIntegrityError("workflow node transparency must be between 0 and 1")
+
+    def s(value: float) -> int:
+        return max(0, round(value * render_scale))
+
     heading_path = font_paths.get("heading") or font_paths.get("body")
     body_path = font_paths.get("body") or heading_path
     if heading_path is None or body_path is None:
         return
+
     normalized_steps: list[str] = []
     step_details: list[str] = []
+    key = "zh" if language.startswith("zh") else "en"
     for step in steps[:4]:
         if not isinstance(step, Mapping):
             continue
-        key = "zh" if language.startswith("zh") else "en"
         value = step.get(key, step.get("en", step.get("zh", "")))
         if isinstance(value, str) and value.strip():
             normalized_steps.append(value.strip())
-            detail_key = "detail_zh" if language.startswith("zh") else "detail_en"
+            detail_key = "detail_zh" if key == "zh" else "detail_en"
             detail = step.get(detail_key, "")
             step_details.append(str(detail).strip() if isinstance(detail, str) else "")
     if len(normalized_steps) < 2:
         return
 
+    scaled_config = dict(config)
+    for geometry_key in ("heading_height", "node_gap", "node_height", "inner_padding"):
+        geometry_value = config.get(geometry_key)
+        if isinstance(geometry_value, (int, float)) and not isinstance(geometry_value, bool):
+            scaled_config[geometry_key] = s(float(geometry_value))
     heading_height, node_gap, node_height, inner_padding = _workflow_geometry(
-        config, width=width, height=height, step_count=len(normalized_steps),
+        scaled_config, width=width, height=height, step_count=len(normalized_steps),
     )
+    node_blur_radius = s(node_blur_radius)
+    corner_radius = s(corner_radius)
+    border_width = s(border_width)
+    node_alpha = round(255 - 255 * node_transparency)
 
     accent = _rgba(config.get("accent"), (56, 193, 255, 255))
     secondary = _rgba(config.get("secondary"), (126, 112, 239, 255))
     node_colors = (accent, (43, 130, 235, 255), secondary, (236, 178, 63, 255))
-    # Draw on a transparent layer so there is no opaque workflow background.
     layer = Image.new("RGBA", output.size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(layer)
-    title = config.get("heading_zh" if language.startswith("zh") else "heading_en")
+
+    title = config.get("heading_zh" if key == "zh" else "heading_en")
     if not isinstance(title, str) or not title.strip():
         benefits_mode = config.get("workflow_mode") == "benefits"
-        title = ("核心收益" if benefits_mode else "关键步骤") if language.startswith("zh") else ("KEY BENEFITS" if benefits_mode else "KEY STEPS")
-    detail_title = config.get("subtitle_zh" if language.startswith("zh") else "subtitle_en", "")
+        title = ("核心收益" if benefits_mode else "关键步骤") if key == "zh" else (
+            "KEY BENEFITS" if benefits_mode else "KEY STEPS"
+        )
+    detail_title = config.get("subtitle_zh" if key == "zh" else "subtitle_en", "")
     detail_title = detail_title.strip() if isinstance(detail_title, str) else ""
     heading_font_size = max(16, min(54, round(min(width, height) * 0.045)))
-    title_font = _fit_overlay_font(heading_path, title, max_size=heading_font_size, min_size=max(14, heading_font_size // 2), max_width=width - inner_padding * 2)
-    draw.text((x + inner_padding, y + 2), title, font=title_font, fill=(245, 250, 255, 255))
-    heading_line_y = y + heading_height - max(4, round(heading_height * 0.12))
+    title_font = _fit_overlay_font(
+        heading_path, title, max_size=heading_font_size,
+        min_size=max(14, heading_font_size // 2), max_width=width - inner_padding * 2,
+    )
+    draw.text((x + inner_padding, y + s(4)), title, font=title_font, fill=(245, 250, 255, 255))
     if detail_title:
-        subtitle_font = _fit_overlay_font(body_path, detail_title, max_size=max(12, heading_font_size // 2), min_size=12, max_width=width - inner_padding * 2)
-        draw.text((x + inner_padding, y + title_font.size + 8), detail_title, font=subtitle_font, fill=(163, 201, 235, 255))
-    draw.line((x + inner_padding, heading_line_y, x + width - inner_padding, heading_line_y), fill=(95, 164, 231, 210), width=max(1, round(min(output.size) * 0.001)))
+        subtitle_font = _fit_overlay_font(
+            body_path, detail_title, max_size=max(12, heading_font_size // 2),
+            min_size=12, max_width=width - inner_padding * 2,
+        )
+        draw.text(
+            (x + inner_padding, y + title_font.size + s(heading_subtitle_gap)),
+            detail_title, font=subtitle_font, fill=(163, 201, 235, 255),
+        )
+    heading_line_y = y + heading_height - s(8)
+    draw.line(
+        (x + inner_padding, heading_line_y, x + width - inner_padding, heading_line_y),
+        fill=(95, 164, 231, 210), width=s(1),
+    )
 
     node_x = x + inner_padding
     node_w = width - inner_padding * 2
@@ -572,57 +646,76 @@ def _draw_workflow_diagram(
         bottom = top + node_height
         color = node_colors[index % len(node_colors)]
         if index:
-            connector_x = node_x + 34
+            connector_x = node_x + s(34)
             previous_bottom = top - node_gap
-            draw.line((connector_x, previous_bottom + 2, connector_x, top - 10), fill=color, width=4)
-            draw.polygon(((connector_x, top - 2), (connector_x - 9, top - 15), (connector_x + 9, top - 15)), fill=color)
-        radius = max(8, min(node_height, node_w) // 16)
-        fill_opacity = config.get("card_fill_opacity", 0.6)
-        blur_ratio = config.get("card_blur_radius_ratio", 0.008)
-        try:
-            fill_alpha = max(0, min(255, round(float(fill_opacity) * 255)))
-            blur_radius = max(0.0, float(blur_ratio) * min(output.size))
-        except (TypeError, ValueError) as exc:
-            raise BrandIntegrityError("workflow card frosted style values must be numeric") from exc
-        if not 0.0 <= float(fill_opacity) <= 1.0 or blur_radius > min(output.size) * 0.05:
-            raise BrandIntegrityError("workflow card frosted style is outside safe visual bounds")
+            draw.line((connector_x, previous_bottom + s(2), connector_x, top - s(10)), fill=color, width=s(2))
+            draw.polygon(
+                ((connector_x, top - s(2)), (connector_x - s(7), top - s(12)), (connector_x + s(7), top - s(12))),
+                fill=color,
+            )
+
         card_box = (node_x, top, node_x + node_w, bottom)
-        local_scene = output.crop(card_box)
-        frosted = local_scene.filter(ImageFilter.GaussianBlur(blur_radius))
-        tint_rgb = _rgba(config.get("card_fill"), (7, 24, 52, 255))
-        tint = Image.new("RGBA", frosted.size, (tint_rgb[0], tint_rgb[1], tint_rgb[2], fill_alpha))
-        frosted = Image.alpha_composite(frosted, tint)
-        card_mask = Image.new("L", frosted.size, 0)
-        ImageDraw.Draw(card_mask).rounded_rectangle((0, 0, node_w - 1, node_height - 1), radius=radius, fill=255)
-        layer.paste(frosted, (node_x, top), card_mask)
-        outline_width = max(1, round(min(output.size) * 0.0014))
-        draw.rounded_rectangle(card_box, radius=radius, outline=color, width=outline_width)
-        rail_x = node_x + max(8, round(node_w * 0.018))
-        draw.line((rail_x, top + max(12, round(node_height * 0.14)), rail_x, bottom - max(12, round(node_height * 0.14))), fill=color, width=outline_width)
+        if node_blur_radius and node_alpha:
+            left, upper = node_x + border_width, top + border_width
+            right, lower = node_x + node_w - border_width, bottom - border_width
+            if right > left and lower > upper:
+                region = output.crop((left, upper, right, lower)).filter(ImageFilter.GaussianBlur(node_blur_radius))
+                tint = Image.new("RGBA", region.size, (*node_tint[:3], round(node_alpha * node_tint[3] / 255)))
+                region = Image.alpha_composite(region, tint)
+                mask = Image.new("L", region.size, 0)
+                ImageDraw.Draw(mask).rounded_rectangle(
+                    (0, 0, region.width - 1, region.height - 1),
+                    radius=max(0, corner_radius - border_width),
+                    fill=255,
+                )
+                output.paste(region, (left, upper), mask)
+
+        draw.rounded_rectangle(
+            card_box, radius=corner_radius, outline=color, width=border_width,
+        )
+        rail_x = node_x + s(16)
+        draw.line(
+            (rail_x, top + s(18), rail_x, bottom - s(18)),
+            fill=color, width=border_width,
+        )
         number_diameter = max(28, min(round(node_height * 0.34), round(node_w * 0.12)))
-        number_left = node_x + max(18, round(node_w * 0.04))
+        number_left = node_x + s(28)
         number_top = top + (node_height - number_diameter) // 2
         number_box = (number_left, number_top, number_left + number_diameter, number_top + number_diameter)
         draw.ellipse(number_box, fill=color)
-        number_font = _fit_overlay_font(heading_path, str(index + 1), max_size=max(18, round(number_diameter * 0.62)), min_size=14, max_width=number_diameter - 6)
+        number_font = _fit_overlay_font(
+            heading_path, str(index + 1), max_size=max(18, round(number_diameter * 0.62)),
+            min_size=14, max_width=number_diameter - s(6),
+        )
         _centered_text(draw, number_box, str(index + 1), number_font, (5, 18, 42, 255))
         icon_center_x = node_x + round(node_w * 0.18)
-        _draw_step_icon(draw, (icon_center_x, top + node_height // 2), index, color)
+        _draw_step_icon(draw, (icon_center_x, top + node_height // 2), index, color, render_scale)
+
         content_left = node_x + round(node_w * 0.25)
         content_right = node_x + node_w - inner_padding
         max_label_size = max(16, min(64, round(min(node_height * 0.31, node_w * 0.055))))
-        label_font = _fit_overlay_font(heading_path, label, max_size=max_label_size, min_size=max(13, max_label_size // 2), max_width=content_right - content_left)
+        label_font = _fit_overlay_font(
+            heading_path, label, max_size=max_label_size,
+            min_size=max(13, max_label_size // 2), max_width=content_right - content_left,
+        )
         detail = step_details[index] if index < len(step_details) else ""
-        detail_font = _fit_overlay_font(body_path, detail, max_size=max(12, round(max_label_size * 0.62)), min_size=11, max_width=content_right - content_left)
-        label_top = top + max(8, round(node_height * 0.16))
+        detail_font = _fit_overlay_font(
+            body_path, detail, max_size=max(12, round(max_label_size * 0.62)),
+            min_size=11, max_width=content_right - content_left,
+        )
+        label_top = top + max(s(8), round(node_height * 0.16))
         draw.text((content_left, label_top), label, font=label_font, fill=(245, 250, 255, 255))
         divider_y = top + round(node_height * 0.55)
-        draw.line((content_left, divider_y, content_right, divider_y), fill=(95, 164, 231, 165), width=max(1, round(min(output.size) * 0.0006)))
+        draw.line(
+            (content_left, divider_y, content_right, divider_y),
+            fill=(95, 164, 231, 165), width=s(1),
+        )
         if detail:
-            draw.text((content_left, divider_y + max(5, round(node_height * 0.07))), detail, font=detail_font, fill=(164, 201, 235, 255))
+            draw.text(
+                (content_left, divider_y + max(s(5), round(node_height * 0.07))),
+                detail, font=detail_font, fill=(164, 201, 235, 255),
+            )
     output.alpha_composite(layer)
-
-
 def render_brand_asset(
     template_path: Path,
     brief: BrandBrief | Mapping[str, object],
@@ -727,12 +820,14 @@ def render_brand_asset(
         if missing:
             chars = " ".join(repr(char) for char in missing)
             raise BrandIntegrityError(f"confirmed {role} font cannot render copy characters: {chars}; select a font that supports these characters")
+        spacing = _text_spacing(slot)
         layout = fit_text_box(
             text,
             (int(slot["w"]), int(slot["h"])),
             font_path,
             max_font_size=int(slot.get("max_font_size", 176)),
             min_font_size=int(slot.get("min_font_size", 24)),
+            spacing=spacing,
         )
         font = ImageFont.truetype(str(font_path), layout.font_size)
         if key == "title" and stage_style:
@@ -757,9 +852,10 @@ def render_brand_asset(
                 base_color=base_fill,
                 emphasis_color=accent_fill,
                 emphasis_text=emphasis_text,
+                spacing=spacing,
             )
         else:
-            draw.multiline_text((int(slot["x"]), int(slot["y"])), "\n".join(layout.lines), font=font, fill=fill, spacing=8)
+            draw.multiline_text((int(slot["x"]), int(slot["y"])), "\n".join(layout.lines), font=font, fill=fill, spacing=spacing)
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     stem = str(template.get("output_stem") or Path(template_path).stem)

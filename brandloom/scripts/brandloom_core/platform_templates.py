@@ -59,6 +59,8 @@ def _make_template(
         raise ValueError("target dimensions must be positive integers")
     ratio = width / height
     margin = _px(min(width, height) * 0.04)
+    title_line_spacing = _px(min(width, height) * 0.018)
+    body_line_spacing = _px(min(width, height) * 0.012)
     wide = ratio >= 1.2
     max_steps = 4 if wide else 3
     workflow_mode = target.get("workflow_mode", "steps")
@@ -83,8 +85,9 @@ def _make_template(
             "accent": [56, 193, 255, 255],
             "secondary": [126, 112, 239, 255],
             "card_fill": [7, 24, 52, 255],
-            "card_fill_opacity": 0.6,
+            "card_fill_opacity": 0.4,
             "card_blur_radius_ratio": 0.008,
+            "heading_subtitle_gap": _px(min(width, height) * 0.022),
             "workflow_mode": workflow_mode,
             "steps": steps,
         })
@@ -97,19 +100,19 @@ def _make_template(
         slots = {
             "company_logo": {"x": _px(width * 0.05), "y": _px(height * 0.045), "w": _px(width * 0.22), "h": _px(height * 0.09), "fit": "contain"},
             "project_mark": {"x": _px(width * 0.37), "y": _px(height * 0.04), "w": _px(width * 0.08), "h": _px(height * 0.10), "fit": "contain"},
-            "title": {"x": _px(width * 0.05), "y": _px(height * 0.18), "w": _px(width * 0.43), "h": _px(height * 0.20), "min_font_size": _px(min(width, height) * 0.035), "max_font_size": _px(min(width, height) * 0.10)},
-            "subtitle": {"x": _px(width * 0.05), "y": _px(height * 0.40), "w": _px(width * 0.43), "h": _px(height * 0.10), "min_font_size": _px(min(width, height) * 0.023), "max_font_size": _px(min(width, height) * 0.055)},
-            "value_line": {"x": _px(width * 0.05), "y": _px(height * 0.52), "w": _px(width * 0.43), "h": _px(height * 0.08), "min_font_size": _px(min(width, height) * 0.021), "max_font_size": _px(min(width, height) * 0.045)},
-            "features": {"x": _px(width * 0.05), "y": _px(height * 0.62), "w": _px(width * 0.44), "h": _px(height * 0.32), "min_font_size": _px(min(width, height) * 0.018), "max_font_size": _px(min(width, height) * 0.036)},
+            "title": {"x": _px(width * 0.05), "y": _px(height * 0.18), "w": _px(width * 0.43), "h": _px(height * 0.20), "min_font_size": _px(min(width, height) * 0.035), "max_font_size": _px(min(width, height) * 0.10), "line_spacing": title_line_spacing},
+            "subtitle": {"x": _px(width * 0.05), "y": _px(height * 0.40), "w": _px(width * 0.43), "h": _px(height * 0.10), "min_font_size": _px(min(width, height) * 0.023), "max_font_size": _px(min(width, height) * 0.055), "line_spacing": body_line_spacing},
+            "value_line": {"x": _px(width * 0.05), "y": _px(height * 0.52), "w": _px(width * 0.43), "h": _px(height * 0.08), "min_font_size": _px(min(width, height) * 0.021), "max_font_size": _px(min(width, height) * 0.045), "line_spacing": body_line_spacing},
+            "features": {"x": _px(width * 0.05), "y": _px(height * 0.62), "w": _px(width * 0.44), "h": _px(height * 0.32), "min_font_size": _px(min(width, height) * 0.018), "max_font_size": _px(min(width, height) * 0.036), "line_spacing": body_line_spacing},
         }
     else:
         slots = {
             "company_logo": {"x": _px(width * 0.06), "y": _px(height * 0.035), "w": _px(width * 0.31), "h": _px(height * 0.07), "fit": "contain"},
             "project_mark": {"x": _px(width * 0.82), "y": _px(height * 0.025), "w": _px(width * 0.12), "h": _px(height * 0.09), "fit": "contain"},
-            "title": {"x": _px(width * 0.06), "y": _px(height * 0.13), "w": _px(width * 0.88), "h": _px(height * 0.12), "min_font_size": _px(min(width, height) * 0.04), "max_font_size": _px(min(width, height) * 0.095)},
-            "subtitle": {"x": _px(width * 0.06), "y": _px(height * 0.265), "w": _px(width * 0.88), "h": _px(height * 0.075), "min_font_size": _px(min(width, height) * 0.025), "max_font_size": _px(min(width, height) * 0.058)},
-            "value_line": {"x": _px(width * 0.06), "y": _px(height * 0.35), "w": _px(width * 0.88), "h": _px(height * 0.065), "min_font_size": _px(min(width, height) * 0.023), "max_font_size": _px(min(width, height) * 0.05)},
-            "features": {"x": _px(width * 0.06), "y": _px(height * 0.425), "w": _px(width * 0.88), "h": _px(height * 0.125), "min_font_size": _px(min(width, height) * 0.018), "max_font_size": _px(min(width, height) * 0.037)},
+            "title": {"x": _px(width * 0.06), "y": _px(height * 0.13), "w": _px(width * 0.88), "h": _px(height * 0.12), "min_font_size": _px(min(width, height) * 0.04), "max_font_size": _px(min(width, height) * 0.095), "line_spacing": title_line_spacing},
+            "subtitle": {"x": _px(width * 0.06), "y": _px(height * 0.265), "w": _px(width * 0.88), "h": _px(height * 0.075), "min_font_size": _px(min(width, height) * 0.025), "max_font_size": _px(min(width, height) * 0.058), "line_spacing": body_line_spacing},
+            "value_line": {"x": _px(width * 0.06), "y": _px(height * 0.35), "w": _px(width * 0.88), "h": _px(height * 0.065), "min_font_size": _px(min(width, height) * 0.023), "max_font_size": _px(min(width, height) * 0.05), "line_spacing": body_line_spacing},
+            "features": {"x": _px(width * 0.06), "y": _px(height * 0.425), "w": _px(width * 0.88), "h": _px(height * 0.125), "min_font_size": _px(min(width, height) * 0.018), "max_font_size": _px(min(width, height) * 0.037), "line_spacing": body_line_spacing},
         }
 
     if target.get("id") == "youtube-channel-banner":

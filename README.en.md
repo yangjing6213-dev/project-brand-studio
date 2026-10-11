@@ -85,6 +85,14 @@ The built-in IP options are `author-anime`, `tuotuo`, and `xingbi`. They are
 equal-level choices and support three single-IP options, three pairs, and one
 all-three combination (seven combinations in total).
 
+All platform covers use a full-bleed, photorealistic real-world scene suited to
+the project's purpose and user workflow, with copy overlaid on the scene. The
+image tool can generate that setting; you do not need to upload a photograph.
+All-black, solid-color, gradient-only, or purely abstract backgrounds are not
+substitutes, and one generic office is not reused for every project. Minimal,
+neon, and 3D presets follow the same rule. Standalone project icons are outside
+this background requirement.
+
 ## 4. What value does it provide?
 
 - **Visual consistency:** The company logo, project mark, IP, typography, and
@@ -325,3 +333,18 @@ If you are also using AI for content, knowledge bases, workflows, or
 productization, visit the website for more resources:
 
 [www.enhe-tech.com.cn](https://www.enhe-tech.com.cn/)
+
+## Version Notes
+
+### 2026-10-12: Cover layout and marketplace copy alignment
+
+- English multiline copy spacing now scales with the canvas, with more room between workflow headings and subtitles; production-template tests cover the 4K layout.
+- The creator-desk prompt now describes its warm wood setting, amber light, and clear area for deterministic copy. The docs clarify that built-in fonts do not guarantee brush lettering or hand-drawn strokes.
+- Marketplace copy and architecture docs now consistently describe the platform-cover-only workflow, not the retired square logo output.
+
+### 2026-09-16: QA option visibility and confirmation contract fix
+
+- Every pending stage now shows its complete, mutually exclusive choices in the same user-facing message and marks one project-grounded recommendation.
+- If the user replies with “continue” without selecting a letter, the Skill re-displays the current choices instead of guessing or skipping confirmation.
+- All 17 pending states now have visible menus; style profiles, output plans, and company-logo rights/storage confirmation are aligned with the actual CLI and manifest fields.
+- Added Skill contract tests covering option completeness, recommendation reasons, mutual exclusion, and rights-field boundaries.

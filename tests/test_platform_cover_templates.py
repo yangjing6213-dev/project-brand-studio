@@ -46,7 +46,7 @@ class PlatformCoverTemplateTests(unittest.TestCase):
             self.assertEqual(len(wide["overlays"]["workflow_diagram"]["steps"]), 4)
             self.assertEqual(len(tall["overlays"]["workflow_diagram"]["steps"]), 3)
             workflow = tall["overlays"]["workflow_diagram"]
-            self.assertEqual(workflow["card_fill_opacity"], 0.6)
+            self.assertEqual(workflow["card_fill_opacity"], 0.4)
             self.assertEqual(workflow["card_blur_radius_ratio"], 0.008)
             self.assertNotIn("text_backdrop", tall["overlays"])
             self.assertNotIn("outer_frame", workflow)
