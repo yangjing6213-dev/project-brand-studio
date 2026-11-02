@@ -1,5 +1,14 @@
 # BrandLoom
 
+> Use guided checks to plan placement-ready visuals and track asset sources, rights and approvals.
+
+![Python](https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white) ![Markdown](https://img.shields.io/badge/Markdown-000000?style=flat-square&logo=markdown&logoColor=white) [![MIT](https://img.shields.io/badge/MIT-yellowgreen?style=flat-square)](LICENSE)
+
+
+![Project cover](assets/portfolio-promo-2026-11-02/cover-en.jpg)
+
+中文封面与配图：[封面](assets/portfolio-promo-2026-11-02/cover-zh.jpg) · [配图](assets/portfolio-promo-2026-11-02/overview-zh.jpg)
+
 [简体中文](README.md) | [English](README.en.md)
 
 <p align="center">
@@ -116,6 +125,11 @@ this background requirement.
   the workflow hard-stops without requesting an API key or switching services.
 
 ## 5. Example results
+### Workflow illustration (concept only)
+
+![Project workflow concept illustration](assets/portfolio-promo-2026-11-02/overview-en.jpg)
+
+> AI-generated concept illustration: workflow only, not a real interface, runtime data, or result.
 
 The following two images are BrandLoom-generated examples, stacked vertically: a 1254×1254 square key visual above a 1774×887 horizontal cover. The square image is from an earlier workflow; the current QA produces platform-specific covers only.
 
