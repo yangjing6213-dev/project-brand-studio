@@ -50,10 +50,12 @@ class DocumentationContractTests(unittest.TestCase):
         for readme_name in ("README.md", "README.en.md"):
             text = (ROOT / readme_name).read_text(encoding="utf-8")
             heading, next_heading = (
-                ("## 五、示例效果", "## 六、安装方法")
+                ("## 二、先看效果", "## 三、适合谁用？")
                 if readme_name == "README.md"
                 else ("## 5. Example results", "## 6. Installation")
             )
+            self.assertIn(heading, text, readme_name)
+            self.assertIn(next_heading, text, readme_name)
             section = text.split(heading, 1)[1].split(next_heading, 1)[0]
             positions = [section.find(image) for image in EXAMPLE_IMAGES]
             self.assertTrue(all(position >= 0 for position in positions), readme_name)

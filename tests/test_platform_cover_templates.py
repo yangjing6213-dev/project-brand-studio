@@ -8,6 +8,7 @@ from PIL import Image
 from brandloom.scripts.brandloom_core.platform_outputs import resolve_output_target
 from brandloom.scripts.brandloom_core.renderer import render_brand_asset
 from brandloom.scripts.brandloom_core.platform_templates import write_cover_template
+from tests.font_test_utils import find_test_font
 
 
 class PlatformCoverTemplateTests(unittest.TestCase):
@@ -115,7 +116,7 @@ class PlatformCoverTemplateTests(unittest.TestCase):
                 {"project": {}, "copy": {"language": "en", "title": "Example"}, "style": {}, "assets": {}},
                 base_image=base_path,
                 asset_paths={"company_logo": logo_path},
-                font_paths={"heading": "C:/Windows/Fonts/arial.ttf", "body": "C:/Windows/Fonts/arial.ttf"},
+                font_paths={"heading": find_test_font(), "body": find_test_font()},
                 output_dir=root / "out",
             )
             with Image.open(result.output_path) as output:
@@ -141,7 +142,7 @@ class PlatformCoverTemplateTests(unittest.TestCase):
                 {"project": {}, "copy": {"language": "en", "title": "Example"}, "style": {}, "assets": {}},
                 base_image=base_path,
                 asset_paths={"company_logo": logo_path},
-                font_paths={"heading": "C:/Windows/Fonts/arial.ttf", "body": "C:/Windows/Fonts/arial.ttf"},
+                font_paths={"heading": find_test_font(), "body": find_test_font()},
                 output_dir=root / "out",
             )
             self.assertEqual(base_path.read_bytes(), original)
